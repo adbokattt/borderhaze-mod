@@ -1,0 +1,56 @@
+name: build
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.5.1
+
+      - name: Build
+        run: gradle build
+
+      - name: Verify jar contents
+        run: |
+          ls -la build/libs
+          JAR=$(ls build/libs/*.jar | grep -v -- '-sources.jar' | head -n 1)
+          echo "Checking: $JAR"
+          unzip -l "$JAR"
+          for f in fabric.mod.json borderhaze.client.mixins.json dev/borderhaze/BorderHaze.class dev/borderhaze/client/BorderHazeClient.class dev/borderhaze/client/mixin/WorldBorderRendererMixin.class; do
+            if ! unzip -l "$JAR" | grep -q " $f\$"; then
+              echo "::error::MISSING in jar: $f"
+              exit 1
+            fi
+          done
+          echo "---- fabric.mod.json inside the jar ----"
+          unzip -p "$JAR" fabric.mod.json
+
+      - name: Upload mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: borderhaze-jar
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
