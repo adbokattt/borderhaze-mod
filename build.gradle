@@ -1,0 +1,126 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = "${project.mod_version}+mc${project.minecraft_version}"
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	// Loom adds the essential maven repositories automatically.
+}
+
+loom {
+	// Separate source sets: src/main (common: client + server) and src/client (client only)
+	splitEnvironmentSourceSets()
+
+	mods {
+		"borderhaze" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	def modVersion = project.version
+	inputs.property "version", modVersion
+
+	filesMatching("fabric.mod.json") {
+		expand "version": modVersion
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_${projectName}" }
+	}
+}
+
+
+// ---------------------------------------------------------------------------
+// Safety check: fail the build loudly if the mod jar is missing essential files.
+// (A wrongly placed file in the repository does NOT fail a normal Gradle build -
+//  it just produces a broken jar that Fabric Loader reports as a "non-fabric mod".)
+// ---------------------------------------------------------------------------
+tasks.register('verifyModJar') {
+	dependsOn tasks.named('jar')
+	doLast {
+		def jarFile = tasks.named('jar').get().archiveFile.get().asFile
+
+		def layout = fileTree(projectDir) {
+			exclude '.git/**', '.gradle/**', 'build/**', '.idea/**', 'run/**'
+		}.files.collect { projectDir.toPath().relativize(it.toPath()).toString().replace('\\', '/') }.sort()
+		def layoutText = layout.collect { "  " + it }.join("\n")
+
+		def zip = new java.util.zip.ZipFile(jarFile)
+		def entries = zip.entries().collect { it.name }
+		zip.close()
+
+		def required = [
+			'fabric.mod.json',
+			'borderhaze.client.mixins.json',
+			'dev/borderhaze/BorderHaze.class',
+			'dev/borderhaze/client/BorderHazeClient.class',
+			'dev/borderhaze/client/mixin/WorldBorderRendererMixin.class'
+		]
+		def missing = required.findAll { !entries.contains(it) }
+
+		println "=== Files in the repository (as Gradle sees them) ==="
+		println layoutText
+		println "=== Files inside ${jarFile.name} ==="
+		println entries.collect { "  " + it }.join("\n")
+
+		if (!missing.isEmpty()) {
+			throw new GradleException(
+				"\n\nMOD JAR IS BROKEN. Missing inside the jar: ${missing}\n" +
+				"Expected repository layout:\n" +
+				"  src/main/java/dev/borderhaze/BorderHaze.java\n" +
+				"  src/main/resources/fabric.mod.json\n" +
+				"  src/client/java/dev/borderhaze/client/BorderHazeClient.java\n" +
+				"  src/client/java/dev/borderhaze/client/mixin/WorldBorderRendererMixin.java\n" +
+				"  src/client/resources/borderhaze.client.mixins.json\n" +
+				"Actual repository layout:\n${layoutText}\n")
+		}
+		println "Jar check OK: ${jarFile.name}"
+	}
+}
+
+tasks.named('build') {
+	dependsOn 'verifyModJar'
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+}

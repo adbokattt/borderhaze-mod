@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "borderhaze",
+  "version": "${version}",
+  "name": "Border Haze",
+  "description": "Replaces the vanilla world border visuals with a blur and heat-haze ripple effect outside the border.",
+  "authors": [
+    "Border Haze contributors"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.borderhaze.BorderHaze"
+    ],
+    "client": [
+      "dev.borderhaze.client.BorderHazeClient"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "borderhaze.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": ">=26.2 <26.4",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
