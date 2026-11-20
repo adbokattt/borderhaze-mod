@@ -2,10 +2,12 @@ package dev.borderhaze.client.debug;
 
 import dev.borderhaze.BorderHaze;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -16,9 +18,10 @@ import java.util.Locale;
 import java.util.function.Predicate;
 
 /**
- * Temporary helper (steps 2-4): writes the real member names of the render classes into
- * <game dir>/logs/borderhaze-diag.txt so the next steps can be written against the real
- * 26.x code instead of guesses. Pure reflection with initialize=false: no side effects.
+ * Temporary helper (steps 2-4): writes real class members and vanilla shader sources into
+ * <game dir>/logs/ so the next steps are written against the real 26.x code instead of guesses.
+ *   borderhaze-diag.txt       - class/method signatures (reflection, initialize=false, no side effects)
+ *   borderhaze-resources.txt  - vanilla post_effect JSONs and post/include shaders as shipped in the game
  * Disable with the JVM argument -Dborderhaze.debug=false
  */
 public final class RenderDiagnostics {
@@ -43,6 +46,8 @@ public final class RenderDiagnostics {
 		};
 	}
 
+	// ------------------------------------------------------------------ class signatures
+
 	public static void dump() {
 		if (!enabled()) {
 			return;
@@ -54,46 +59,36 @@ public final class RenderDiagnostics {
 			out.add("Border Haze diagnostics | Minecraft " + mc + " | java " + System.getProperty("java.version"));
 			out.add("");
 
-			// --- world border (data side) ---
-			dump(out, "net.minecraft.world.level.border.WorldBorder", ALL);
-			dump(out, "net.minecraft.world.level.Level", anyOf("border"));
-			dump(out, "net.minecraft.client.multiplayer.ClientLevel", anyOf("border"));
+			dump(out, "net.minecraft.world.level.border.WorldBorder", anyOf("getmin", "getmax", "getsize", "getcenter", "lerp"));
 
-			// --- world border (render side, already hidden by the mixin) ---
-			dump(out, "net.minecraft.client.renderer.WorldBorderRenderer", ALL);
-			dump(out, "net.minecraft.client.renderer.state.WorldBorderRenderState", ALL);
-
-			// --- post-effect system (needed for the blur/ripple pass) ---
+			// post-effect system
 			dump(out, "net.minecraft.client.renderer.PostChain", ALL);
+			dump(out, "net.minecraft.client.renderer.PostChain$TargetBundle", ALL);
 			dump(out, "net.minecraft.client.renderer.PostPass", ALL);
-			dump(out, "net.minecraft.client.renderer.PostChainConfig", ALL);
-			dump(out, "net.minecraft.client.renderer.ShaderManager", ALL);
-			dump(out, "net.minecraft.client.renderer.LevelTargetBundle", ALL);
-			dump(out, "com.mojang.blaze3d.framegraph.FrameGraphBuilder", ALL);
+			dump(out, "net.minecraft.client.renderer.PostPass$Input", ALL);
+			dump(out, "net.minecraft.client.renderer.PostChainConfig$Pass", ALL);
+			dump(out, "net.minecraft.client.renderer.PostChainConfig$Uniform", ALL);
+			dump(out, "net.minecraft.client.renderer.PostChainConfig$Input", ALL);
+			dump(out, "net.minecraft.client.renderer.PostChainConfig$InternalTarget", ALL);
+			dump(out, "net.minecraft.client.renderer.Projection", ALL);
+			dump(out, "net.minecraft.client.renderer.GlobalSettingsUniform", ALL);
+			dump(out, "net.minecraft.client.renderer.RenderPipelines", anyOf("post", "blit", "screen"));
 
-			// --- where the level is rendered / where post effects are applied ---
-			dump(out, "net.minecraft.client.renderer.LevelRenderer", anyOf("post", "effect", "border", "target", "render(", "renderlevel"));
-			dump(out, "net.minecraft.client.renderer.GameRenderer", anyOf("post", "effect", "target", "blur", "process", "shader", "render"));
-			dump(out, "net.minecraft.client.renderer.extract.LevelExtractor", anyOf("border"));
-			dump(out, "net.minecraft.client.renderer.state.level.LevelRenderState", anyOf("border", "camera"));
+			// GPU API (needed to rewrite per-frame uniform buffers)
+			dump(out, "com.mojang.blaze3d.buffers.GpuBuffer", ALL);
+			dump(out, "com.mojang.blaze3d.buffers.GpuBufferSlice", ALL);
+			dump(out, "com.mojang.blaze3d.systems.CommandEncoder", ALL);
+			dump(out, "com.mojang.blaze3d.systems.GpuDevice", ALL);
+			dump(out, "com.mojang.blaze3d.systems.RenderSystem", anyOf("device", "encoder", "uniform", "dynamic", "projection", "default"));
+
+			// camera data
 			dump(out, "net.minecraft.client.renderer.state.level.CameraRenderState", ALL);
-			dump(out, "net.minecraft.client.Minecraft", anyOf("target", "post", "border", "levelextractor", "levelrenderer", "gamerenderer", "shadermanager"));
-
-			// --- GPU API used to feed a custom uniform / draw a pass ---
-			dump(out, "com.mojang.blaze3d.systems.RenderPass", ALL);
-			dump(out, "com.mojang.blaze3d.pipeline.RenderTarget", ALL);
+			dump(out, "net.minecraft.client.renderer.GameRenderer", anyOf("camera", "projection", "levelprojection", "fov"));
+			dump(out, "net.minecraft.client.Options", anyOf("renderdistance", "effectiverender"));
 		} catch (Throwable t) {
 			out.add("DIAGNOSTICS FAILED: " + t);
 		}
-
-		try {
-			Path file = FabricLoader.getInstance().getGameDir().resolve("logs").resolve("borderhaze-diag.txt");
-			Files.createDirectories(file.getParent());
-			Files.write(file, out);
-			BorderHaze.LOGGER.info("[Border Haze] diagnostics written to {} ({} lines)", file, out.size());
-		} catch (Throwable t) {
-			BorderHaze.LOGGER.warn("[Border Haze] could not write diagnostics file: {}", t.toString());
-		}
+		write(out, "borderhaze-diag.txt");
 	}
 
 	private static void dump(List<String> out, String className, Predicate<String> memberFilter) {
@@ -116,6 +111,62 @@ public final class RenderDiagnostics {
 		} catch (Throwable t) {
 			out.add("==== " + className + "  NOT AVAILABLE: " + t);
 			out.add("");
+		}
+	}
+
+	// ------------------------------------------------------------------ vanilla resources
+
+	/** Called once the game and its resource packs are fully loaded (CLIENT_STARTED). */
+	public static void dumpResources(Minecraft mc) {
+		if (!enabled()) {
+			return;
+		}
+		List<String> out = new ArrayList<>();
+		try {
+			var resourceManager = mc.getResourceManager();
+			out.add("Vanilla resources (namespace 'minecraft') as loaded by the game");
+			out.add("");
+
+			// 1) every shader file name, so we know what exists
+			out.add("#### FILE LIST: shaders/**");
+			var shaders = resourceManager.listResources("shaders", id -> id.getNamespace().equals("minecraft"));
+			shaders.keySet().stream().map(Object::toString).sorted().forEach(s -> out.add("  " + s));
+			out.add("");
+
+			// 2) full text of the post-processing related files
+			dumpContents(out, resourceManager, "post_effect", p -> true);
+			dumpContents(out, resourceManager, "shaders", p -> p.startsWith("shaders/post/") || p.startsWith("shaders/include/")
+					|| p.contains("screenquad") || p.contains("blit"));
+		} catch (Throwable t) {
+			out.add("RESOURCE DUMP FAILED: " + t);
+		}
+		write(out, "borderhaze-resources.txt");
+	}
+
+	private static void dumpContents(List<String> out, net.minecraft.server.packs.resources.ResourceManager rm,
+									 String root, Predicate<String> pathFilter) {
+		var found = rm.listResources(root, id -> id.getNamespace().equals("minecraft") && pathFilter.test(id.getPath()));
+		found.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey(Comparator.comparing(Object::toString))).forEach(e -> {
+			out.add("#### " + e.getKey());
+			try (var in = e.getValue().open()) {
+				out.add(new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("\r", ""));
+			} catch (Throwable t) {
+				out.add("  (could not read: " + t + ")");
+			}
+			out.add("");
+		});
+	}
+
+	// ------------------------------------------------------------------ output
+
+	private static void write(List<String> lines, String fileName) {
+		try {
+			Path file = FabricLoader.getInstance().getGameDir().resolve("logs").resolve(fileName);
+			Files.createDirectories(file.getParent());
+			Files.write(file, lines);
+			BorderHaze.LOGGER.info("[Border Haze] wrote {} ({} lines)", file, lines.size());
+		} catch (Throwable t) {
+			BorderHaze.LOGGER.warn("[Border Haze] could not write {}: {}", fileName, t.toString());
 		}
 	}
 }
