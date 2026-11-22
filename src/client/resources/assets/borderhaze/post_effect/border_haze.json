@@ -1,29 +1,122 @@
 {
-  "targets": {
-    "swap": {}
-  },
-  "passes": [
-    {
-      "vertex_shader": "minecraft:core/screenquad",
-      "fragment_shader": "borderhaze:post/border_haze",
-      "inputs": [
-        {
-          "sampler_name": "In",
-          "target": "minecraft:main"
-        }
-      ],
-      "output": "swap"
+    "targets": {
+        "swap": {}
     },
-    {
-      "vertex_shader": "minecraft:core/screenquad",
-      "fragment_shader": "minecraft:post/blit",
-      "inputs": [
+    "passes": [
         {
-          "sampler_name": "In",
-          "target": "swap"
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "borderhaze:post/border_haze",
+            "inputs": [
+                {
+                    "sampler_name": "In",
+                    "target": "minecraft:main"
+                },
+                {
+                    "sampler_name": "InDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                }
+            ],
+            "output": "swap",
+            "uniforms": {
+                "BorderConfig": [
+                    {
+                        "name": "InvViewProj0",
+                        "type": "vec4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "InvViewProj1",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "InvViewProj2",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "InvViewProj3",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "Bounds",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "Params",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            6.0,
+                            1.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "Effect",
+                        "type": "vec4",
+                        "value": [
+                            14.0,
+                            0.004,
+                            1.2,
+                            40.0
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "minecraft:post/blit",
+            "inputs": [
+                {
+                    "sampler_name": "In",
+                    "target": "swap"
+                }
+            ],
+            "uniforms": {
+                "BlitConfig": [
+                    {
+                        "name": "ColorModulate",
+                        "type": "vec4",
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
+                    }
+                ]
+            },
+            "output": "minecraft:main"
         }
-      ],
-      "output": "minecraft:main"
-    }
-  ]
+    ]
 }

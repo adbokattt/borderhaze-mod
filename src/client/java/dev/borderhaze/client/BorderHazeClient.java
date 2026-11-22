@@ -2,6 +2,7 @@ package dev.borderhaze.client;
 
 import dev.borderhaze.BorderHaze;
 import dev.borderhaze.client.border.BorderDebug;
+import dev.borderhaze.client.config.HazeConfig;
 import dev.borderhaze.client.debug.RenderDiagnostics;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -11,7 +12,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
  * Client-only entrypoint.
  * Step 2: hides the vanilla world border visuals (WorldBorderRendererMixin).
  * Step 3: reads the synced border state (BorderTracker) and logs it.
- * Step 4a: test post-effect hook (GameRendererMixin + BorderEffect).
+ * Step 4b: post-effect with depth mask and per-frame uniforms (LevelRendererMixin, BorderEffect, BorderUniforms).
  */
 public class BorderHazeClient implements ClientModInitializer {
 
@@ -35,7 +36,8 @@ public class BorderHazeClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		BorderHaze.LOGGER.info("[Border Haze] client init OK (step 4a: test post-effect hook)");
+		BorderHaze.LOGGER.info("[Border Haze] client init OK (step 4b: depth mask + per-frame uniforms)");
+		HazeConfig.load();
 		ClientTickEvents.END_CLIENT_TICK.register(BorderDebug::tick);
 		RenderDiagnostics.dump();
 		ClientLifecycleEvents.CLIENT_STARTED.register(RenderDiagnostics::dumpResources);

@@ -90,8 +90,10 @@ tasks.register('verifyModJar') {
 			'dev/borderhaze/BorderHaze.class',
 			'dev/borderhaze/client/BorderHazeClient.class',
 			'dev/borderhaze/client/mixin/WorldBorderRendererMixin.class',
-			'dev/borderhaze/client/mixin/GameRendererMixin.class',
+			'dev/borderhaze/client/mixin/LevelRendererMixin.class',
 			'dev/borderhaze/client/render/BorderEffect.class',
+			'dev/borderhaze/client/render/BorderUniforms.class',
+			'dev/borderhaze/client/config/HazeConfig.class',
 			'assets/borderhaze/post_effect/border_haze.json',
 			'assets/borderhaze/shaders/post/border_haze.fsh'
 		]
@@ -111,7 +113,7 @@ tasks.register('verifyModJar') {
 				"  src/client/java/dev/borderhaze/client/BorderHazeClient.java\n" +
 				"  src/client/java/dev/borderhaze/client/mixin/WorldBorderRendererMixin.java\n" +
 				"  src/client/resources/borderhaze.client.mixins.json\n" +
-				"  src/client/java/dev/borderhaze/client/mixin/GameRendererMixin.java\n" +
+				"  src/client/java/dev/borderhaze/client/mixin/LevelRendererMixin.java\n" +
 				"  src/client/java/dev/borderhaze/client/render/BorderEffect.java\n" +
 				"  src/client/resources/assets/borderhaze/post_effect/border_haze.json\n" +
 				"  src/client/resources/assets/borderhaze/shaders/post/border_haze.fsh\n" +
