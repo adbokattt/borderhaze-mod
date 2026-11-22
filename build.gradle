@@ -95,6 +95,12 @@ tasks.register('verifyModJar') {
 			'dev/borderhaze/client/render/BorderUniforms.class',
 			'dev/borderhaze/client/config/HazeConfig.class',
 			'dev/borderhaze/client/command/BorderHazeCommand.class',
+			'dev/borderhaze/client/sound/BorderSound.class',
+			'dev/borderhaze/client/sound/BorderHumSoundInstance.class',
+			'dev/borderhaze/client/mixin/optional/HudVignetteMixin.class',
+			'borderhaze.optional.mixins.json',
+			'assets/borderhaze/sounds.json',
+			'assets/borderhaze/sounds/border_hum.ogg',
 			'assets/borderhaze/post_effect/border_haze.json',
 			'assets/borderhaze/shaders/post/border_haze.fsh'
 		]
@@ -117,6 +123,10 @@ tasks.register('verifyModJar') {
 				"  src/client/java/dev/borderhaze/client/mixin/LevelRendererMixin.java\n" +
 				"  src/client/java/dev/borderhaze/client/render/BorderEffect.java\n" +
 				"  src/client/java/dev/borderhaze/client/command/BorderHazeCommand.java\n" +
+				"  src/client/java/dev/borderhaze/client/sound/BorderSound.java (+ BorderHumSoundInstance.java)\n" +
+				"  src/client/java/dev/borderhaze/client/mixin/optional/HudVignetteMixin.java\n" +
+				"  src/client/resources/borderhaze.optional.mixins.json\n" +
+				"  src/client/resources/assets/borderhaze/sounds.json and sounds/border_hum.ogg\n" +
 				"  src/client/resources/assets/borderhaze/post_effect/border_haze.json\n" +
 				"  src/client/resources/assets/borderhaze/shaders/post/border_haze.fsh\n" +
 				"Actual repository layout:\n${layoutText}\n")

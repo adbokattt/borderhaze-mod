@@ -19,6 +19,8 @@ import net.minecraft.network.chat.Component;
  *   /borderhaze haze <0..1>           haze strength
  *   /borderhaze falloff <0.5..200>    blocks over which the effect fades in
  *   /borderhaze pixelsize <2..64>     mosaic block size (style pixel)
+ *   /borderhaze edge <0..96>          screen-edge blur radius near the border (0 = off)
+ *   /borderhaze sound <0..1>          border hum volume (0 = off)
  *   /borderhaze debug <true|false>    debug view (red tint + yellow line)
  *   /borderhaze on | off | reload
  */
@@ -80,6 +82,20 @@ public final class BorderHazeCommand {
 									HazeConfig.save();
 									return say(ctx.getSource(), "Border Haze: pixel size = " + HazeConfig.pixelSize);
 								})))
+						.then(ClientCommands.literal("edge")
+								.then(ClientCommands.argument("pixels", FloatArgumentType.floatArg(0f, 96f)).executes(ctx -> {
+									HazeConfig.edgeBlur = FloatArgumentType.getFloat(ctx, "pixels");
+									HazeConfig.save();
+									return say(ctx.getSource(), "Border Haze: screen-edge blur = " + HazeConfig.edgeBlur);
+								})))
+						.then(ClientCommands.literal("sound")
+								.then(ClientCommands.argument("volume", FloatArgumentType.floatArg(0f, 1f)).executes(ctx -> {
+									float v = FloatArgumentType.getFloat(ctx, "volume");
+									HazeConfig.soundVolume = v;
+									HazeConfig.soundEnabled = v > 0.0f;
+									HazeConfig.save();
+									return say(ctx.getSource(), "Border Haze: hum volume = " + v);
+								})))
 						.then(ClientCommands.literal("debug")
 								.then(ClientCommands.argument("enabled", BoolArgumentType.bool()).executes(ctx -> {
 									HazeConfig.debugMask = BoolArgumentType.getBool(ctx, "enabled");
@@ -95,6 +111,8 @@ public final class BorderHazeCommand {
 				+ " | haze=" + HazeConfig.hazeStrength
 				+ " | falloff=" + HazeConfig.falloff
 				+ " | pixelSize=" + HazeConfig.pixelSize
+				+ " | edge=" + HazeConfig.edgeBlur + "@" + HazeConfig.edgeDistance
+				+ " | sound=" + (HazeConfig.soundEnabled ? HazeConfig.soundVolume : 0.0f)
 				+ " | debug=" + HazeConfig.debugMask);
 	}
 

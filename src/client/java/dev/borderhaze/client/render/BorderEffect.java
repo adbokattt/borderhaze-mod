@@ -50,7 +50,7 @@ public final class BorderEffect {
 			}
 
 			BorderSnapshot border = BorderTracker.read(mc);
-			double viewBlocks = mc.options.renderDistance().get() * 16.0;
+			double viewBlocks = Math.max(mc.options.renderDistance().get() * 16.0, HazeConfig.edgeBlur > 0.0f ? HazeConfig.edgeDistance : 0.0);
 			if (!border.isRelevantFor(cameraState.pos.x, cameraState.pos.z, viewBlocks)) {
 				return; // border far away or infinite: no GPU work at all
 			}

@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * Feeds the per-frame data (camera matrices, border bounds, effect settings) to the shader.
  *
- * The JSON of the post effect declares a uniform block "BorderConfig" (9 x vec4 = 144 bytes).
+ * The JSON of the post effect declares a uniform block "BorderConfig" (10 x vec4 = 160 bytes).
  * The game creates a GPU buffer for it when it loads the chain (PostPass.customUniforms).
  * Every frame we find that buffer and overwrite its contents with fresh values.
  * (Same technique other mods use to drive vanilla post shaders; names verified from the 26.2 dump.)
@@ -35,11 +35,12 @@ import java.util.Map;
  *   vec4 Effect            x blur radius(px), y ripple amplitude, z ripple speed, w ripple scale
  *   vec4 Style             x style (0 = blur+ripple, 1 = pixel), y pixel block size(px), z pixel softness, w unused
  *   vec4 Haze              rgb haze colour, w haze strength
+ *   vec4 Edge              x proximity of the player to the border (0..1), y screen-edge blur radius(px), zw unused
  * The block exists in EVERY pass of the chain (each pass owns its own buffer), so all of them are written.
  */
 public final class BorderUniforms {
 	private static final String BLOCK_NAME = "BorderConfig";
-	private static final int SIZE = 9 * 16;
+	private static final int SIZE = 10 * 16;
 	private static final long START_NANOS = System.nanoTime();
 
 	private static Field passesField;
@@ -175,6 +176,15 @@ public final class BorderUniforms {
 		bb.putFloat(((rgb >> 8) & 0xFF) / 255.0f);
 		bb.putFloat((rgb & 0xFF) / 255.0f);
 		bb.putFloat(HazeConfig.hazeStrength);
+
+		// Edge: how close the camera is to the border (0 = far, 1 = at/over the border), smoothed
+		float edgeDist = (float) border.signedDistance(cam.pos.x, cam.pos.z);
+		float prox = Math.max(0.0f, Math.min(1.0f, 1.0f - edgeDist / Math.max(HazeConfig.edgeDistance, 0.5f)));
+		prox = prox * prox * (3.0f - 2.0f * prox);
+		bb.putFloat(prox);
+		bb.putFloat(HazeConfig.edgeBlur);
+		bb.putFloat(0.0f);
+		bb.putFloat(0.0f);
 
 		bb.flip();
 		CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();

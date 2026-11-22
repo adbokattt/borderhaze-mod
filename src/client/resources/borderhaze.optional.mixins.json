@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.borderhaze.client.mixin.optional",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [],
+  "client": [
+    "HudVignetteMixin"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

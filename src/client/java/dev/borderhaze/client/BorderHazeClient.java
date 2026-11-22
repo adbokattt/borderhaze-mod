@@ -5,6 +5,7 @@ import dev.borderhaze.client.border.BorderDebug;
 import dev.borderhaze.client.command.BorderHazeCommand;
 import dev.borderhaze.client.config.HazeConfig;
 import dev.borderhaze.client.debug.RenderDiagnostics;
+import dev.borderhaze.client.sound.BorderSound;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -23,8 +24,9 @@ public class BorderHazeClient implements ClientModInitializer {
 	/** Master switch for the post effect. Disable with the JVM argument -Dborderhaze.effect=false */
 	private static volatile boolean effectEnabled = !"false".equalsIgnoreCase(System.getProperty("borderhaze.effect", "true"));
 
+	/** The vanilla border and its red warning are hidden only while the mod is switched on (/borderhaze off = pure vanilla). */
 	public static boolean isVanillaBorderHidden() {
-		return hideVanillaBorder;
+		return hideVanillaBorder && HazeConfig.enabled;
 	}
 
 	public static void setVanillaBorderHidden(boolean hidden) {
@@ -41,6 +43,7 @@ public class BorderHazeClient implements ClientModInitializer {
 		HazeConfig.load();
 		BorderHazeCommand.register();
 		ClientTickEvents.END_CLIENT_TICK.register(BorderDebug::tick);
+		ClientTickEvents.END_CLIENT_TICK.register(BorderSound::tick);
 		RenderDiagnostics.dump();
 		ClientLifecycleEvents.CLIENT_STARTED.register(RenderDiagnostics::dumpResources);
 	}

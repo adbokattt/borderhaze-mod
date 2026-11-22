@@ -1,0 +1,10 @@
+{
+  "border_hum": {
+    "sounds": [
+      {
+        "name": "borderhaze:border_hum",
+        "stream": false
+      }
+    ]
+  }
+}
