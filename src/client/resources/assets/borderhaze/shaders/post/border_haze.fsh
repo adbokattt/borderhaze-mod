@@ -18,20 +18,22 @@ layout(std140) uniform BorderConfig {
     vec4 InvViewProj2;
     vec4 InvViewProj3;
     vec4 Bounds;   // camera-relative: minX, maxX, minZ, maxZ
-    vec4 Params;   // x time(s), y falloff(blocks), z debug(0/1), w depth convention (0 = [-1,1], 1 = [0,1])
+    vec4 Params;   // x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z: sky depth 0; 0 = forward: sky depth 1)
     vec4 Effect;   // x blur radius(px), y ripple amplitude(uv), z ripple speed, w ripple scale
 };
 
 out vec4 fragColor;
 
 // Distance (in blocks) of the surface seen at `uv` OUTSIDE the border. <= 0 means inside / not applicable.
+// 26.2 stores REVERSE-Z depth (depth = near / distance, sky = 0). In reverse and forward "zero to one"
+// setups the NDC z equals the stored depth, so the inverse view-projection matrix unprojects it directly.
 float outsideDistance(vec2 uv) {
     float depth = texture(InDepthSampler, uv).r;
-    if (depth >= 0.99999) {
-        return -1.0; // sky / nothing drawn: leave untouched
+    bool sky = Params.w > 0.5 ? depth <= 1.0e-7 : depth >= 0.99999;
+    if (sky) {
+        return -1.0; // nothing drawn here: leave untouched
     }
-    float ndcZ = Params.w < 0.5 ? depth * 2.0 - 1.0 : depth;
-    vec4 clip = vec4(uv * 2.0 - 1.0, ndcZ, 1.0);
+    vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
     vec4 world = mat4(InvViewProj0, InvViewProj1, InvViewProj2, InvViewProj3) * clip;
     vec3 rel = world.xyz / world.w; // camera-relative world position
 

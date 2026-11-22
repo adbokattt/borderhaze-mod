@@ -23,11 +23,11 @@ public final class HazeConfig {
 	/** true = DEBUG view: red tint outside the border + yellow line exactly on the border. false = real blur/ripple. */
 	public static volatile boolean debugMask = true;
 	/** Blocks over which the effect fades in, starting exactly at the border. */
-	public static volatile float falloff = 6.0f;
+	public static volatile float falloff = 3.0f;
 	/** Maximum blur radius in screen pixels. */
-	public static volatile float blurRadius = 14.0f;
+	public static volatile float blurRadius = 22.0f;
 	/** Ripple strength in screen UV units (0.004 = 0.4% of the screen). */
-	public static volatile float rippleAmplitude = 0.004f;
+	public static volatile float rippleAmplitude = 0.006f;
 	/** Ripple animation speed. */
 	public static volatile float rippleSpeed = 1.2f;
 	/** Ripple wave density. */
@@ -75,9 +75,9 @@ public final class HazeConfig {
 		lastModified = Files.getLastModifiedTime(file).toMillis();
 		enabled = bool(p, "enabled", true);
 		debugMask = bool(p, "debugMask", true);
-		falloff = num(p, "falloff", 6.0f, 0.5f, 200f);
-		blurRadius = num(p, "blurRadius", 14.0f, 0f, 64f);
-		rippleAmplitude = num(p, "rippleAmplitude", 0.004f, 0f, 0.05f);
+		falloff = num(p, "falloff", 3.0f, 0.5f, 200f);
+		blurRadius = num(p, "blurRadius", 22.0f, 0f, 64f);
+		rippleAmplitude = num(p, "rippleAmplitude", 0.006f, 0f, 0.05f);
 		rippleSpeed = num(p, "rippleSpeed", 1.2f, 0f, 20f);
 		rippleScale = num(p, "rippleScale", 40.0f, 1f, 400f);
 		BorderHaze.LOGGER.info("[Border Haze] config loaded: enabled={} debugMask={} falloff={} blurRadius={} rippleAmplitude={} rippleSpeed={} rippleScale={}",
@@ -114,13 +114,13 @@ public final class HazeConfig {
 				debugMask=true
 
 				# Blocks over which the effect fades in, starting exactly at the border (0.5 .. 200)
-				falloff=6.0
+				falloff=3.0
 
 				# Maximum blur radius in screen pixels (0 .. 64)
-				blurRadius=14.0
+				blurRadius=22.0
 
 				# Ripple (heat-haze) strength in screen UV units, 0 = off (0 .. 0.05)
-				rippleAmplitude=0.004
+				rippleAmplitude=0.006
 
 				# Ripple animation speed (0 .. 20)
 				rippleSpeed=1.2

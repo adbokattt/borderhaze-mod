@@ -29,13 +29,12 @@ import java.util.Map;
  * Layout (std140, must match border_haze.fsh):
  *   vec4 InvViewProj0..3   inverse(projection * view), columns. Maps screen+depth to camera-relative world position
  *   vec4 Bounds            minX, maxX, minZ, maxZ of the border, relative to the camera (float precision stays good)
- *   vec4 Params            x time(s), y falloff(blocks), z debug(0/1), w depth convention (0 = [-1,1], 1 = [0,1])
+ *   vec4 Params            x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z, sky depth 0; 0 = forward, sky depth 1)
  *   vec4 Effect            x blur radius(px), y ripple amplitude, z ripple speed, w ripple scale
  */
 public final class BorderUniforms {
 	private static final String BLOCK_NAME = "BorderConfig";
 	private static final int SIZE = 7 * 16;
-	private static final float EXPECTED_NEAR_PLANE = 0.05f;
 	private static final long START_NANOS = System.nanoTime();
 
 	private static Field passesField;
@@ -112,18 +111,19 @@ public final class BorderUniforms {
 		Matrix4f view = new Matrix4f(modelView);
 		Matrix4f inv = new Matrix4f(proj).mul(view).invert();
 
-		// Detect the depth convention from the projection matrix: with the right formula the near plane
-		// must come out as ~0.05. (OpenGL [-1,1] vs "zero to one" depth.)
+		// Depth convention (verified from the 26.2 log: m22 ~ 0, m32 = near plane):
+		// 26.2 renders with REVERSE-Z and an infinite far plane: stored depth = near / distance, sky = 0.
+		// In both reverse and classic "zero to one" setups the NDC z equals the stored depth, so the shader
+		// can unproject with the inverse matrix directly. Only the "nothing drawn / sky" value differs.
+		// Detection: m22 ~ 0 -> reverse-Z; m22 ~ -1 -> classic forward projection.
 		float m22 = proj.m22();
 		float m32 = proj.m32();
-		float nearGl = m32 / (m22 - 1.0f);
-		float nearZo = m32 / m22;
-		boolean zeroToOne = Math.abs(nearZo - EXPECTED_NEAR_PLANE) < Math.abs(nearGl - EXPECTED_NEAR_PLANE);
+		boolean reverseZ = Math.abs(m22) < 0.01f;
 
 		if (!loggedFirstWrite) {
 			loggedFirstWrite = true;
-			BorderHaze.LOGGER.info("[Border Haze][effect] projection check: m22={} m32={} nearIfGL={} nearIfZeroToOne={} -> using {}",
-					m22, m32, nearGl, nearZo, zeroToOne ? "ZERO_TO_ONE" : "GL_MINUS_ONE_TO_ONE");
+			BorderHaze.LOGGER.info("[Border Haze][effect] projection check: m22={} m32={} -> {}",
+					m22, m32, reverseZ ? "REVERSE_Z (depth = near/distance, sky = 0)" : "FORWARD zero-to-one (sky = 1)");
 			BorderHaze.LOGGER.info("[Border Haze][effect] modelView param equals cameraState.viewRotationMatrix: {} (differs when view bobbing is on)",
 					view.equals(cam.viewRotationMatrix, 1.0e-4f));
 		}
@@ -147,7 +147,7 @@ public final class BorderUniforms {
 		bb.putFloat(time);
 		bb.putFloat(HazeConfig.falloff);
 		bb.putFloat(HazeConfig.debugMask ? 1.0f : 0.0f);
-		bb.putFloat(zeroToOne ? 1.0f : 0.0f);
+		bb.putFloat(reverseZ ? 1.0f : 0.0f);
 
 		// Effect
 		bb.putFloat(HazeConfig.blurRadius);
