@@ -1,6 +1,7 @@
 package dev.borderhaze.client.render;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.borderhaze.BorderHaze;
 import dev.borderhaze.client.border.BorderSnapshot;
@@ -14,6 +15,7 @@ import org.joml.Matrix4fc;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +23,7 @@ import java.util.Map;
 /**
  * Feeds the per-frame data (camera matrices, border bounds, effect settings) to the shader.
  *
- * The JSON of the post effect declares a uniform block "BorderConfig" (8 x vec4 = 128 bytes).
+ * The JSON of the post effect declares a uniform block "BorderConfig" (9 x vec4 = 144 bytes).
  * The game creates a GPU buffer for it when it loads the chain (PostPass.customUniforms).
  * Every frame we find that buffer and overwrite its contents with fresh values.
  * (Same technique other mods use to drive vanilla post shaders; names verified from the 26.2 dump.)
@@ -32,38 +34,40 @@ import java.util.Map;
  *   vec4 Params            x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z, sky depth 0; 0 = forward, sky depth 1)
  *   vec4 Effect            x blur radius(px), y ripple amplitude, z ripple speed, w ripple scale
  *   vec4 Style             x style (0 = blur+ripple, 1 = pixel), y pixel block size(px), z pixel softness, w unused
+ *   vec4 Haze              rgb haze colour, w haze strength
+ * The block exists in EVERY pass of the chain (each pass owns its own buffer), so all of them are written.
  */
 public final class BorderUniforms {
 	private static final String BLOCK_NAME = "BorderConfig";
-	private static final int SIZE = 8 * 16;
+	private static final int SIZE = 9 * 16;
 	private static final long START_NANOS = System.nanoTime();
 
 	private static Field passesField;
 	private static Field customUniformsField;
 
 	private static PostChain cachedChain;
-	private static GpuBuffer cachedBuffer;
-	private static GpuBuffer ownBuffer;
+	private static List<GpuBuffer> cachedBuffers;
+	private static final List<GpuBuffer> ownBuffers = new ArrayList<>();
 	private static boolean loggedFirstWrite;
 
 	private BorderUniforms() {
 	}
 
-	/** Finds (and caches) the writable GPU buffer of our uniform block inside the loaded chain. */
+	/** Finds (and caches) the writable GPU buffers of our uniform block (one per pass) inside the loaded chain. */
 	@SuppressWarnings("unchecked")
-	public static GpuBuffer resolve(PostChain chain) throws Exception {
-		if (chain == cachedChain && cachedBuffer != null) {
-			return cachedBuffer;
+	public static List<GpuBuffer> resolve(PostChain chain) throws Exception {
+		if (chain == cachedChain && cachedBuffers != null) {
+			return cachedBuffers;
 		}
-		if (ownBuffer != null) {
+		for (GpuBuffer old : ownBuffers) {
 			try {
-				ownBuffer.close();
+				old.close();
 			} catch (Throwable ignored) {
 			}
-			ownBuffer = null;
 		}
+		ownBuffers.clear();
 		cachedChain = chain;
-		cachedBuffer = null;
+		cachedBuffers = null;
 
 		if (passesField == null) {
 			passesField = PostChain.class.getDeclaredField("passes");
@@ -72,6 +76,7 @@ public final class BorderUniforms {
 			customUniformsField.setAccessible(true);
 		}
 
+		List<GpuBuffer> result = new ArrayList<>();
 		List<Object> passes = (List<Object>) passesField.get(chain);
 		for (Object pass : passes) {
 			Map<String, GpuBuffer> map = (Map<String, GpuBuffer>) customUniformsField.get(pass);
@@ -80,34 +85,36 @@ public final class BorderUniforms {
 				continue;
 			}
 			boolean writable = (found.usage() & GpuBuffer.USAGE_COPY_DST) != 0;
-			BorderHaze.LOGGER.info("[Border Haze][effect] uniform block '{}' found: size={} usage=0x{} copyDst={}",
-					BLOCK_NAME, found.size(), Integer.toHexString(found.usage()), writable);
 			if (found.size() != SIZE) {
 				throw new IllegalStateException("uniform block size is " + found.size() + " but " + SIZE + " was expected (JSON and Java disagree)");
 			}
 			if (writable) {
-				cachedBuffer = found;
+				result.add(found);
 			} else {
 				// Vanilla created it without COPY_DST: swap in our own writable buffer of the same size.
-				ownBuffer = RenderSystem.getDevice().createBuffer(() -> "Border Haze BorderConfig",
+				GpuBuffer own = RenderSystem.getDevice().createBuffer(() -> "Border Haze BorderConfig",
 						GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, (long) SIZE);
+				ownBuffers.add(own);
 				try {
-					map.put(BLOCK_NAME, ownBuffer);
+					map.put(BLOCK_NAME, own);
 				} catch (UnsupportedOperationException immutable) {
 					Map<String, GpuBuffer> copy = new HashMap<>(map);
-					copy.put(BLOCK_NAME, ownBuffer);
+					copy.put(BLOCK_NAME, own);
 					customUniformsField.set(pass, copy);
 				}
-				BorderHaze.LOGGER.info("[Border Haze][effect] replaced the read-only buffer by our own writable one");
-				cachedBuffer = ownBuffer;
+				result.add(own);
 			}
-			return cachedBuffer;
 		}
-		throw new IllegalStateException("uniform block '" + BLOCK_NAME + "' not found in any pass (check border_haze.json)");
+		if (result.isEmpty()) {
+			throw new IllegalStateException("uniform block '" + BLOCK_NAME + "' not found in any pass (check border_haze.json)");
+		}
+		BorderHaze.LOGGER.info("[Border Haze][effect] uniform block '{}' bound in {} pass(es), {} own writable buffer(s)", BLOCK_NAME, result.size(), ownBuffers.size());
+		cachedBuffers = result;
+		return result;
 	}
 
 	/** Packs all values and uploads them to the GPU. Called once per frame. */
-	public static void write(GpuBuffer buffer, CameraRenderState cam, Matrix4fc modelView, BorderSnapshot border) {
+	public static void write(List<GpuBuffer> buffers, CameraRenderState cam, Matrix4fc modelView, BorderSnapshot border) {
 		Matrix4f proj = cam.projectionMatrix;
 		Matrix4f view = new Matrix4f(modelView);
 		Matrix4f inv = new Matrix4f(proj).mul(view).invert();
@@ -162,7 +169,17 @@ public final class BorderUniforms {
 		bb.putFloat(HazeConfig.pixelBlur);
 		bb.putFloat(0.0f);
 
+		// Haze (colour + strength)
+		int rgb = HazeConfig.hazeColor;
+		bb.putFloat(((rgb >> 16) & 0xFF) / 255.0f);
+		bb.putFloat(((rgb >> 8) & 0xFF) / 255.0f);
+		bb.putFloat((rgb & 0xFF) / 255.0f);
+		bb.putFloat(HazeConfig.hazeStrength);
+
 		bb.flip();
-		RenderSystem.getDevice().createCommandEncoder().writeToBuffer(buffer.slice(), bb);
+		CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
+		for (GpuBuffer buffer : buffers) {
+			encoder.writeToBuffer(buffer.slice(), bb.duplicate());
+		}
 	}
 }

@@ -22,14 +22,14 @@ import java.util.function.Predicate;
  * <game dir>/logs/ so the next steps are written against the real 26.x code instead of guesses.
  *   borderhaze-diag.txt       - class/method signatures (reflection, initialize=false, no side effects)
  *   borderhaze-resources.txt  - vanilla post_effect JSONs and post/include shaders as shipped in the game
- * Disable with the JVM argument -Dborderhaze.debug=false
+ * OFF by default. Enable with the JVM argument -Dborderhaze.debug=true
  */
 public final class RenderDiagnostics {
 	private RenderDiagnostics() {
 	}
 
 	public static boolean enabled() {
-		return !"false".equalsIgnoreCase(System.getProperty("borderhaze.debug", "true"));
+		return "true".equalsIgnoreCase(System.getProperty("borderhaze.debug", "false"));
 	}
 
 	private static final Predicate<String> ALL = s -> true;

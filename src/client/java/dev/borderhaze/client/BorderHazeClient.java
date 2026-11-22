@@ -2,6 +2,7 @@ package dev.borderhaze.client;
 
 import dev.borderhaze.BorderHaze;
 import dev.borderhaze.client.border.BorderDebug;
+import dev.borderhaze.client.command.BorderHazeCommand;
 import dev.borderhaze.client.config.HazeConfig;
 import dev.borderhaze.client.debug.RenderDiagnostics;
 import net.fabricmc.api.ClientModInitializer;
@@ -36,8 +37,9 @@ public class BorderHazeClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		BorderHaze.LOGGER.info("[Border Haze] client init OK (step 4b: depth mask + per-frame uniforms)");
+		BorderHaze.LOGGER.info("[Border Haze] client init OK (2-pass blur / pixel styles, /borderhaze command)");
 		HazeConfig.load();
+		BorderHazeCommand.register();
 		ClientTickEvents.END_CLIENT_TICK.register(BorderDebug::tick);
 		RenderDiagnostics.dump();
 		ClientLifecycleEvents.CLIENT_STARTED.register(RenderDiagnostics::dumpResources);

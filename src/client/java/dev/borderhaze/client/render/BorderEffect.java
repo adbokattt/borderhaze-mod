@@ -14,6 +14,8 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.resources.Identifier;
 import org.joml.Matrix4fc;
 
+import java.util.List;
+
 /**
  * Runs the border post-effect chain (assets/borderhaze/post_effect/border_haze.json) once per frame,
  * right after the 3D world has been drawn.
@@ -59,7 +61,7 @@ public final class BorderEffect {
 				return;
 			}
 
-			GpuBuffer uniforms = BorderUniforms.resolve(chain);
+			List<GpuBuffer> uniforms = BorderUniforms.resolve(chain);
 			BorderUniforms.write(uniforms, cameraState, modelView, border);
 
 			chain.process(mc.gameRenderer.mainRenderTarget(), allocator);
