@@ -1,130 +1,48 @@
 package dev.borderhaze.client.render;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.systems.CommandEncoder;
-import com.mojang.blaze3d.systems.RenderSystem;
 import dev.borderhaze.BorderHaze;
 import dev.borderhaze.client.border.BorderSnapshot;
 import dev.borderhaze.client.config.HazeConfig;
 import net.minecraft.client.renderer.PostChain;
-import net.minecraft.client.renderer.PostPass;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 
-import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Feeds the per-frame data (camera matrices, border bounds, effect settings) to the shader.
+ * Per-frame data for the WORLD chain (border_haze.json): camera matrices, border bounds, effect settings.
  *
- * The JSON of the post effect declares a uniform block "BorderConfig" (10 x vec4 = 160 bytes).
- * The game creates a GPU buffer for it when it loads the chain (PostPass.customUniforms).
- * Every frame we find that buffer and overwrite its contents with fresh values.
- * (Same technique other mods use to drive vanilla post shaders; names verified from the 26.2 dump.)
- *
- * Layout (std140, must match border_haze.fsh):
- *   vec4 InvViewProj0..3   inverse(projection * view), columns. Maps screen+depth to camera-relative world position
- *   vec4 Bounds            minX, maxX, minZ, maxZ of the border, relative to the camera (float precision stays good)
- *   vec4 Params            x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z, sky depth 0; 0 = forward, sky depth 1)
+ * Block "BorderConfig" (std140, must match border_haze.fsh and border_haze.json), 9 x vec4 = 144 bytes:
+ *   vec4 InvViewProj0..3   inverse(projection * view), columns. Maps screen + depth to a camera-relative world position
+ *   vec4 Bounds            minX, maxX, minZ, maxZ of the border, relative to the camera (keeps float precision good)
+ *   vec4 Params            x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z, sky depth 0)
  *   vec4 Effect            x blur radius(px), y ripple amplitude, z ripple speed, w ripple scale
  *   vec4 Style             x style (0 = blur+ripple, 1 = pixel), y pixel block size(px), z pixel softness, w unused
  *   vec4 Haze              rgb haze colour, w haze strength
- *   vec4 Edge              x proximity of the player to the border (0..1), y screen-edge blur radius(px), zw unused
- * The block exists in EVERY pass of the chain (each pass owns its own buffer), so all of them are written.
  */
 public final class BorderUniforms {
-	private static final String BLOCK_NAME = "BorderConfig";
-	private static final int SIZE = 10 * 16;
+	private static final int SIZE = 9 * 16;
+	private static final UniformBinder BINDER = new UniformBinder("BorderConfig", SIZE);
 	private static final long START_NANOS = System.nanoTime();
-
-	private static Field passesField;
-	private static Field customUniformsField;
-
-	private static PostChain cachedChain;
-	private static List<GpuBuffer> cachedBuffers;
-	private static final List<GpuBuffer> ownBuffers = new ArrayList<>();
 	private static boolean loggedFirstWrite;
 
 	private BorderUniforms() {
 	}
 
-	/** Finds (and caches) the writable GPU buffers of our uniform block (one per pass) inside the loaded chain. */
-	@SuppressWarnings("unchecked")
-	public static List<GpuBuffer> resolve(PostChain chain) throws Exception {
-		if (chain == cachedChain && cachedBuffers != null) {
-			return cachedBuffers;
-		}
-		for (GpuBuffer old : ownBuffers) {
-			try {
-				old.close();
-			} catch (Throwable ignored) {
-			}
-		}
-		ownBuffers.clear();
-		cachedChain = chain;
-		cachedBuffers = null;
+	public static void update(PostChain chain, CameraRenderState cam, Matrix4fc modelView, BorderSnapshot border) throws Exception {
+		List<GpuBuffer> buffers = BINDER.resolve(chain);
 
-		if (passesField == null) {
-			passesField = PostChain.class.getDeclaredField("passes");
-			passesField.setAccessible(true);
-			customUniformsField = PostPass.class.getDeclaredField("customUniforms");
-			customUniformsField.setAccessible(true);
-		}
-
-		List<GpuBuffer> result = new ArrayList<>();
-		List<Object> passes = (List<Object>) passesField.get(chain);
-		for (Object pass : passes) {
-			Map<String, GpuBuffer> map = (Map<String, GpuBuffer>) customUniformsField.get(pass);
-			GpuBuffer found = map.get(BLOCK_NAME);
-			if (found == null) {
-				continue;
-			}
-			boolean writable = (found.usage() & GpuBuffer.USAGE_COPY_DST) != 0;
-			if (found.size() != SIZE) {
-				throw new IllegalStateException("uniform block size is " + found.size() + " but " + SIZE + " was expected (JSON and Java disagree)");
-			}
-			if (writable) {
-				result.add(found);
-			} else {
-				// Vanilla created it without COPY_DST: swap in our own writable buffer of the same size.
-				GpuBuffer own = RenderSystem.getDevice().createBuffer(() -> "Border Haze BorderConfig",
-						GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, (long) SIZE);
-				ownBuffers.add(own);
-				try {
-					map.put(BLOCK_NAME, own);
-				} catch (UnsupportedOperationException immutable) {
-					Map<String, GpuBuffer> copy = new HashMap<>(map);
-					copy.put(BLOCK_NAME, own);
-					customUniformsField.set(pass, copy);
-				}
-				result.add(own);
-			}
-		}
-		if (result.isEmpty()) {
-			throw new IllegalStateException("uniform block '" + BLOCK_NAME + "' not found in any pass (check border_haze.json)");
-		}
-		BorderHaze.LOGGER.info("[Border Haze][effect] uniform block '{}' bound in {} pass(es), {} own writable buffer(s)", BLOCK_NAME, result.size(), ownBuffers.size());
-		cachedBuffers = result;
-		return result;
-	}
-
-	/** Packs all values and uploads them to the GPU. Called once per frame. */
-	public static void write(List<GpuBuffer> buffers, CameraRenderState cam, Matrix4fc modelView, BorderSnapshot border) {
 		Matrix4f proj = cam.projectionMatrix;
 		Matrix4f view = new Matrix4f(modelView);
 		Matrix4f inv = new Matrix4f(proj).mul(view).invert();
 
-		// Depth convention (verified from the 26.2 log: m22 ~ 0, m32 = near plane):
-		// 26.2 renders with REVERSE-Z and an infinite far plane: stored depth = near / distance, sky = 0.
-		// In both reverse and classic "zero to one" setups the NDC z equals the stored depth, so the shader
-		// can unproject with the inverse matrix directly. Only the "nothing drawn / sky" value differs.
-		// Detection: m22 ~ 0 -> reverse-Z; m22 ~ -1 -> classic forward projection.
+		// Depth convention (verified from the 26.2 log: m22 ~ 0, m32 = near plane): 26.2 renders with REVERSE-Z and
+		// an infinite far plane: stored depth = near / distance, sky = 0. NDC z equals the stored depth in both
+		// reverse and classic "zero to one" setups, so the shader unprojects with the inverse matrix directly.
 		float m22 = proj.m22();
 		float m32 = proj.m32();
 		boolean reverseZ = Math.abs(m22) < 0.01f;
@@ -133,8 +51,6 @@ public final class BorderUniforms {
 			loggedFirstWrite = true;
 			BorderHaze.LOGGER.info("[Border Haze][effect] projection check: m22={} m32={} -> {}",
 					m22, m32, reverseZ ? "REVERSE_Z (depth = near/distance, sky = 0)" : "FORWARD zero-to-one (sky = 1)");
-			BorderHaze.LOGGER.info("[Border Haze][effect] modelView param equals cameraState.viewRotationMatrix: {} (differs when view bobbing is on)",
-					view.equals(cam.viewRotationMatrix, 1.0e-4f));
 		}
 
 		ByteBuffer bb = ByteBuffer.allocateDirect(SIZE).order(ByteOrder.nativeOrder());
@@ -177,19 +93,7 @@ public final class BorderUniforms {
 		bb.putFloat((rgb & 0xFF) / 255.0f);
 		bb.putFloat(HazeConfig.hazeStrength);
 
-		// Edge: how close the camera is to the border (0 = far, 1 = at/over the border), smoothed
-		float edgeDist = (float) border.signedDistance(cam.pos.x, cam.pos.z);
-		float prox = Math.max(0.0f, Math.min(1.0f, 1.0f - edgeDist / Math.max(HazeConfig.edgeDistance, 0.5f)));
-		prox = prox * prox * (3.0f - 2.0f * prox);
-		bb.putFloat(prox);
-		bb.putFloat(HazeConfig.edgeBlur);
-		bb.putFloat(0.0f);
-		bb.putFloat(0.0f);
-
 		bb.flip();
-		CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-		for (GpuBuffer buffer : buffers) {
-			encoder.writeToBuffer(buffer.slice(), bb.duplicate());
-		}
+		BINDER.upload(buffers, bb);
 	}
 }

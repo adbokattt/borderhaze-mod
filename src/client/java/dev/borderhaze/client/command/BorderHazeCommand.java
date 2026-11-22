@@ -19,7 +19,9 @@ import net.minecraft.network.chat.Component;
  *   /borderhaze haze <0..1>           haze strength
  *   /borderhaze falloff <0.5..200>    blocks over which the effect fades in
  *   /borderhaze pixelsize <2..64>     mosaic block size (style pixel)
- *   /borderhaze edge <0..96>          screen-edge blur radius near the border (0 = off)
+ *   /borderhaze edge <0..192>         screen blur near the border, max radius in pixels (0 = off)
+ *   /borderhaze edgedistance <1..200> blocks from the border at which the screen blur starts
+ *   /borderhaze edgehaze <0..1>       haze wash over the fully blurred screen at the border
  *   /borderhaze sound <0..1>          border hum volume (0 = off)
  *   /borderhaze debug <true|false>    debug view (red tint + yellow line)
  *   /borderhaze on | off | reload
@@ -83,10 +85,22 @@ public final class BorderHazeCommand {
 									return say(ctx.getSource(), "Border Haze: pixel size = " + HazeConfig.pixelSize);
 								})))
 						.then(ClientCommands.literal("edge")
-								.then(ClientCommands.argument("pixels", FloatArgumentType.floatArg(0f, 96f)).executes(ctx -> {
+								.then(ClientCommands.argument("pixels", FloatArgumentType.floatArg(0f, 192f)).executes(ctx -> {
 									HazeConfig.edgeBlur = FloatArgumentType.getFloat(ctx, "pixels");
 									HazeConfig.save();
 									return say(ctx.getSource(), "Border Haze: screen-edge blur = " + HazeConfig.edgeBlur);
+								})))
+						.then(ClientCommands.literal("edgedistance")
+								.then(ClientCommands.argument("blocks", FloatArgumentType.floatArg(1f, 200f)).executes(ctx -> {
+									HazeConfig.edgeDistance = FloatArgumentType.getFloat(ctx, "blocks");
+									HazeConfig.save();
+									return say(ctx.getSource(), "Border Haze: screen blur starts " + HazeConfig.edgeDistance + " blocks from the border");
+								})))
+						.then(ClientCommands.literal("edgehaze")
+								.then(ClientCommands.argument("strength", FloatArgumentType.floatArg(0f, 1f)).executes(ctx -> {
+									HazeConfig.edgeHaze = FloatArgumentType.getFloat(ctx, "strength");
+									HazeConfig.save();
+									return say(ctx.getSource(), "Border Haze: edge haze wash = " + HazeConfig.edgeHaze);
 								})))
 						.then(ClientCommands.literal("sound")
 								.then(ClientCommands.argument("volume", FloatArgumentType.floatArg(0f, 1f)).executes(ctx -> {
@@ -111,7 +125,7 @@ public final class BorderHazeCommand {
 				+ " | haze=" + HazeConfig.hazeStrength
 				+ " | falloff=" + HazeConfig.falloff
 				+ " | pixelSize=" + HazeConfig.pixelSize
-				+ " | edge=" + HazeConfig.edgeBlur + "@" + HazeConfig.edgeDistance
+				+ " | edge=" + HazeConfig.edgeBlur + "@" + HazeConfig.edgeDistance + " haze " + HazeConfig.edgeHaze
 				+ " | sound=" + (HazeConfig.soundEnabled ? HazeConfig.soundVolume : 0.0f)
 				+ " | debug=" + HazeConfig.debugMask);
 	}

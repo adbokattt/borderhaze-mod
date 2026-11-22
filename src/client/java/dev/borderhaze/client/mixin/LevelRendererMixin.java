@@ -27,6 +27,6 @@ public abstract class LevelRendererMixin {
 											 boolean renderBlockOutline, CameraRenderState cameraState,
 											 Matrix4fc modelViewMatrix, GpuBufferSlice terrainFog,
 											 Vector4f fogColor, boolean renderSky, CallbackInfo ci) {
-		BorderEffect.render(allocator, cameraState, modelViewMatrix);
+		BorderEffect.renderWorld(allocator, cameraState, modelViewMatrix);
 	}
 }

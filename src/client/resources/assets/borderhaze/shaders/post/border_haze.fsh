@@ -1,7 +1,7 @@
 #version 330
 
-// Border Haze: blur / pixelation + haze for everything OUTSIDE the vanilla world border,
-// plus a blur at the screen edges when the player is close to the border.
+// Border Haze (WORLD chain): blur / pixelation + haze for everything OUTSIDE the vanilla world border.
+// (The screen-edge blur near the border is a separate chain: border_edge.json / border_edge.fsh.)
 //
 // The chain runs this ONE shader twice:
 //   pass 0: main -> swap   (horizontal blur, ripple, or the whole pixel mosaic)
@@ -9,7 +9,7 @@
 //
 // For every pixel: depth -> camera-relative world position -> distance outside the border square.
 // The effect starts exactly at the border (distance 0) and fades in over `falloff` blocks, so there is
-// no hard wall. Pixels inside the border are untouched (sharp), except for the screen-edge blur.
+// no hard wall. Pixels inside the border are returned untouched (sharp).
 
 uniform sampler2D InSampler;
 uniform sampler2D InDepthSampler;
@@ -27,7 +27,6 @@ layout(std140) uniform BorderConfig {
     vec4 Effect;   // x blur radius(px), y ripple amplitude(uv), z ripple speed, w ripple scale
     vec4 Style;    // x style (0 = blur+ripple, 1 = pixel), y pixel block size(px), z pixel softness, w unused
     vec4 Haze;     // rgb haze colour, w haze strength
-    vec4 Edge;     // x proximity of the player to the border (0..1), y screen-edge blur radius(px)
 };
 
 layout(std140) uniform PassConfig {
@@ -93,14 +92,8 @@ void main() {
         return;
     }
 
-    // ---- screen-edge blur: grows towards the screen edges/corners and with the player's proximity to the border ----
-    // (replaces the vanilla red warning vignette)
-    vec2 q = texCoord * 2.0 - 1.0;
-    float edgeAmount = Edge.x * smoothstep(0.35, 1.0, length(q) * 0.70710678);
-    float edgeRadius = Edge.y * edgeAmount;
-
-    // ---- nothing to do for this pixel ----
-    if (m <= 0.0 && edgeRadius < 0.5) {
+    // ---- inside the border: untouched ----
+    if (m <= 0.0) {
         fragColor = vec4(base.rgb, 1.0);
         return;
     }
@@ -108,7 +101,7 @@ void main() {
     // ---- STYLE 1 beyond the border: pixelated mosaic with a slight blur ----
     // Pass 0 builds the mosaic: each block of Style.y pixels gets the average of a 3x3 tap pattern around its centre.
     // Style.z widens the averaged area beyond the block, which softens it. Pass 1 only adds the haze.
-    if (Style.x > 0.5 && m > 0.0) {
+    if (Style.x > 0.5) {
         if (lastPass) {
             fragColor = vec4(mix(base.rgb, Haze.rgb, Haze.w * m), 1.0);
             return;
@@ -127,21 +120,21 @@ void main() {
         return;
     }
 
-    // ---- blur: beyond the border (style 0) and at the screen edges (both styles) ----
-    float radius = Style.x > 0.5 ? edgeRadius : max(Effect.x * m, edgeRadius);
-    vec2 uv = texCoord;
-    if (!lastPass && m > 0.0 && Style.x < 0.5) {
-        // pass 0: ripple = smooth animated displacement, strength grows with m
+    // ---- STYLE 0: blur + ripple ----
+    float radius = Effect.x * m; // pixels, grows smoothly from 0 at the border
+    vec3 color;
+    if (!lastPass) {
+        // pass 0: ripple (smooth animated displacement, strength grows with m) + horizontal blur
         float t = Params.x * Effect.z;
         float s = Effect.w;
         vec2 wobble = vec2(
             sin(texCoord.y * s + t) + 0.5 * sin(texCoord.y * s * 2.3 - t * 1.7),
             cos(texCoord.x * s * 0.8 + t * 1.3) + 0.5 * sin(texCoord.x * s * 1.9 + t * 0.7));
-        uv += wobble * Effect.y * m;
-    }
-    vec3 color = radius >= 0.5 ? tentBlur(uv, Dir.xy, radius) : textureLod(InSampler, uv, 0.0).rgb;
-    if (lastPass) {
-        color = mix(color, Haze.rgb, Haze.w * m); // haze only beyond the border (m = 0 inside)
+        color = tentBlur(texCoord + wobble * Effect.y * m, Dir.xy, radius);
+    } else {
+        // pass 1: vertical blur + haze
+        color = tentBlur(texCoord, Dir.xy, radius);
+        color = mix(color, Haze.rgb, Haze.w * m);
     }
     fragColor = vec4(color, 1.0);
 }

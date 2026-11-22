@@ -43,10 +43,12 @@ public final class HazeConfig {
 	public static volatile float hazeStrength = 0.1f;
 	/** Both styles: haze colour as 0xRRGGBB. */
 	public static volatile int hazeColor = 0xC8D4E4;
-	/** Blur at the screen edges when the player is near the border (replaces the vanilla red warning). Pixels at the very edge. 0 = off. */
-	public static volatile float edgeBlur = 24.0f;
-	/** Distance to the border (blocks) at which the edge blur starts to appear. */
-	public static volatile float edgeDistance = 12.0f;
+	/** Maximum blur radius (pixels) of the screen blur near the border; it covers the whole screen at the border. 0 = off. */
+	public static volatile float edgeBlur = 64.0f;
+	/** Distance to the border (blocks) at which the screen blur starts to creep in from the edges. */
+	public static volatile float edgeDistance = 16.0f;
+	/** How strongly the fully blurred screen is washed towards the haze colour when you are at the border (0 = off). */
+	public static volatile float edgeHaze = 0.45f;
 	/** Play the border hum when the player is near the border. */
 	public static volatile boolean soundEnabled = true;
 	/** Maximum volume of the hum (0 .. 1). It is also scaled by the game's "Ambient" volume slider. */
@@ -130,14 +132,15 @@ public final class HazeConfig {
 		pixelBlur = num(p, "pixelBlur", 0.6f, 0f, 2f);
 		hazeStrength = num(p, "hazeStrength", 0.1f, 0f, 1f);
 		hazeColor = color(p, "hazeColor", 0xC8D4E4);
-		edgeBlur = num(p, "edgeBlur", 24.0f, 0f, 96f);
-		edgeDistance = num(p, "edgeDistance", 12.0f, 1f, 200f);
+		edgeBlur = num(p, "edgeBlur", 64.0f, 0f, 192f);
+		edgeDistance = num(p, "edgeDistance", 16.0f, 1f, 200f);
+		edgeHaze = num(p, "edgeHaze", 0.45f, 0f, 1f);
 		soundEnabled = bool(p, "sound", true);
 		soundVolume = num(p, "soundVolume", 0.5f, 0f, 1f);
 		soundDistance = num(p, "soundDistance", 24.0f, 2f, 200f);
-		BorderHaze.LOGGER.info("[Border Haze] config loaded: enabled={} debugMask={} style={} falloff={} blur={} haze={} #{} edgeBlur={}@{} sound={}/{}@{} (ripple {}/{}/{}, pixel {}/{})",
+		BorderHaze.LOGGER.info("[Border Haze] config loaded: enabled={} debugMask={} style={} falloff={} blur={} haze={} #{} edgeBlur={}@{} edgeHaze={} sound={}/{}@{} (ripple {}/{}/{}, pixel {}/{})",
 				enabled, debugMask, style == 1 ? "pixel" : "blur", falloff, blurRadius, hazeStrength, String.format("%06X", hazeColor),
-				edgeBlur, edgeDistance, soundEnabled, soundVolume, soundDistance,
+				edgeBlur, edgeDistance, edgeHaze, soundEnabled, soundVolume, soundDistance,
 				rippleAmplitude, rippleSpeed, rippleScale, pixelSize, pixelBlur);
 	}
 
@@ -217,11 +220,15 @@ public final class HazeConfig {
 				# Haze colour, hex RRGGBB
 				hazeColor=%s
 
-				# --- screen-edge blur (replaces the vanilla red warning at the screen edges) ---
-				# Blur radius at the very edge of the screen when you are near the border, in pixels (0 .. 96). 0 = off
+				# --- screen blur near the border (replaces the vanilla red warning at the screen edges) ---
+				# It blurs EVERYTHING on screen (world, hand, hotbar, open inventories). It creeps in from the screen edges as you
+				# approach the border and covers the whole screen when you stand at the border.
+				# Maximum blur radius in pixels (0 .. 192). 0 = off
 				edgeBlur=%s
-				# Distance to the border (blocks) at which the edge blur starts to appear (1 .. 200)
+				# Distance to the border (blocks) at which the blur starts to appear (1 .. 200)
 				edgeDistance=%s
+				# Haze wash over the fully blurred screen at the border, 0 = off (0 .. 1)
+				edgeHaze=%s
 
 				# --- border hum ---
 				# Play a low hum when you are near the border
@@ -232,6 +239,6 @@ public final class HazeConfig {
 				soundDistance=%s
 				""".formatted(enabled, debugMask, style == 1 ? "pixel" : "blur", falloff, blurRadius, rippleAmplitude,
 				rippleSpeed, rippleScale, pixelSize, pixelBlur, hazeStrength, String.format("%06X", hazeColor),
-				edgeBlur, edgeDistance, soundEnabled, soundVolume, soundDistance);
+				edgeBlur, edgeDistance, edgeHaze, soundEnabled, soundVolume, soundDistance);
 	}
 }

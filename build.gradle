@@ -91,8 +91,11 @@ tasks.register('verifyModJar') {
 			'dev/borderhaze/client/BorderHazeClient.class',
 			'dev/borderhaze/client/mixin/WorldBorderRendererMixin.class',
 			'dev/borderhaze/client/mixin/LevelRendererMixin.class',
+			'dev/borderhaze/client/mixin/GameRendererMixin.class',
 			'dev/borderhaze/client/render/BorderEffect.class',
 			'dev/borderhaze/client/render/BorderUniforms.class',
+			'dev/borderhaze/client/render/EdgeUniforms.class',
+			'dev/borderhaze/client/render/UniformBinder.class',
 			'dev/borderhaze/client/config/HazeConfig.class',
 			'dev/borderhaze/client/command/BorderHazeCommand.class',
 			'dev/borderhaze/client/sound/BorderSound.class',
@@ -102,7 +105,9 @@ tasks.register('verifyModJar') {
 			'assets/borderhaze/sounds.json',
 			'assets/borderhaze/sounds/border_hum.ogg',
 			'assets/borderhaze/post_effect/border_haze.json',
-			'assets/borderhaze/shaders/post/border_haze.fsh'
+			'assets/borderhaze/shaders/post/border_haze.fsh',
+			'assets/borderhaze/post_effect/border_edge.json',
+			'assets/borderhaze/shaders/post/border_edge.fsh'
 		]
 		def missing = required.findAll { !entries.contains(it) }
 
@@ -129,6 +134,7 @@ tasks.register('verifyModJar') {
 				"  src/client/resources/assets/borderhaze/sounds.json and sounds/border_hum.ogg\n" +
 				"  src/client/resources/assets/borderhaze/post_effect/border_haze.json\n" +
 				"  src/client/resources/assets/borderhaze/shaders/post/border_haze.fsh\n" +
+				"  src/client/resources/assets/borderhaze/post_effect/border_edge.json and shaders/post/border_edge.fsh\n" +
 				"Actual repository layout:\n${layoutText}\n")
 		}
 		println "Jar check OK: ${jarFile.name}"
