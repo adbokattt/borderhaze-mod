@@ -85,6 +85,12 @@ public final class RenderDiagnostics {
 			dump(out, "net.minecraft.client.renderer.state.level.CameraRenderState", ALL);
 			dump(out, "net.minecraft.client.renderer.GameRenderer", anyOf("camera", "projection", "levelprojection", "fov"));
 			dump(out, "net.minecraft.client.Options", anyOf("renderdistance", "effectiverender"));
+
+			// Fabric client command API (to add an optional /borderhaze command later)
+			dump(out, "net.fabricmc.fabric.api.client.command.v2.ClientCommands", ALL);
+			dump(out, "net.fabricmc.fabric.api.client.command.v2.ClientCommandManager", ALL);
+			dump(out, "net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback", ALL);
+			dump(out, "net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource", ALL);
 		} catch (Throwable t) {
 			out.add("DIAGNOSTICS FAILED: " + t);
 		}

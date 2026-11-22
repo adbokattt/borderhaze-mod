@@ -11,7 +11,7 @@ uniform sampler2D InDepthSampler;
 
 in vec2 texCoord;
 
-// std140 block, must match BorderUniforms.java and border_haze.json (7 x vec4)
+// std140 block, must match BorderUniforms.java and border_haze.json (8 x vec4)
 layout(std140) uniform BorderConfig {
     vec4 InvViewProj0;
     vec4 InvViewProj1;
@@ -20,6 +20,7 @@ layout(std140) uniform BorderConfig {
     vec4 Bounds;   // camera-relative: minX, maxX, minZ, maxZ
     vec4 Params;   // x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z: sky depth 0; 0 = forward: sky depth 1)
     vec4 Effect;   // x blur radius(px), y ripple amplitude(uv), z ripple speed, w ripple scale
+    vec4 Style;    // x style (0 = blur+ripple, 1 = pixel), y pixel block size(px), z pixel softness, w unused
 };
 
 out vec4 fragColor;
@@ -59,6 +60,24 @@ void main() {
     // ---- inside the border: untouched ----
     if (m <= 0.0) {
         fragColor = vec4(base.rgb, 1.0);
+        return;
+    }
+
+    // ---- STYLE 1: pixelated mosaic with a slight blur ----
+    // Each screen block of Style.y pixels gets one colour: the average of a 3x3 tap pattern around the block
+    // centre. Style.z widens the averaged area beyond the block, which softens the blocks (slight blur).
+    if (Style.x > 0.5) {
+        vec2 screen = vec2(textureSize(InSampler, 0));
+        float px = max(Style.y, 1.0);
+        vec2 center = (floor(texCoord * screen / px) + 0.5) * px / screen;
+        float spacing = px * (1.0 + Style.z) / 3.0;
+        vec3 sum = vec3(0.0);
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                sum += texture(InSampler, center + vec2(float(i), float(j)) * spacing / screen).rgb;
+            }
+        }
+        fragColor = vec4(mix(base.rgb, sum / 9.0, m), 1.0);
         return;
     }
 

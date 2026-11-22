@@ -21,7 +21,7 @@ import java.util.Map;
 /**
  * Feeds the per-frame data (camera matrices, border bounds, effect settings) to the shader.
  *
- * The JSON of the post effect declares a uniform block "BorderConfig" (7 x vec4 = 112 bytes).
+ * The JSON of the post effect declares a uniform block "BorderConfig" (8 x vec4 = 128 bytes).
  * The game creates a GPU buffer for it when it loads the chain (PostPass.customUniforms).
  * Every frame we find that buffer and overwrite its contents with fresh values.
  * (Same technique other mods use to drive vanilla post shaders; names verified from the 26.2 dump.)
@@ -31,10 +31,11 @@ import java.util.Map;
  *   vec4 Bounds            minX, maxX, minZ, maxZ of the border, relative to the camera (float precision stays good)
  *   vec4 Params            x time(s), y falloff(blocks), z debug(0/1), w reverse-Z flag (1 = reverse-Z, sky depth 0; 0 = forward, sky depth 1)
  *   vec4 Effect            x blur radius(px), y ripple amplitude, z ripple speed, w ripple scale
+ *   vec4 Style             x style (0 = blur+ripple, 1 = pixel), y pixel block size(px), z pixel softness, w unused
  */
 public final class BorderUniforms {
 	private static final String BLOCK_NAME = "BorderConfig";
-	private static final int SIZE = 7 * 16;
+	private static final int SIZE = 8 * 16;
 	private static final long START_NANOS = System.nanoTime();
 
 	private static Field passesField;
@@ -154,6 +155,12 @@ public final class BorderUniforms {
 		bb.putFloat(HazeConfig.rippleAmplitude);
 		bb.putFloat(HazeConfig.rippleSpeed);
 		bb.putFloat(HazeConfig.rippleScale);
+
+		// Style
+		bb.putFloat(HazeConfig.style);
+		bb.putFloat(HazeConfig.pixelSize);
+		bb.putFloat(HazeConfig.pixelBlur);
+		bb.putFloat(0.0f);
 
 		bb.flip();
 		RenderSystem.getDevice().createCommandEncoder().writeToBuffer(buffer.slice(), bb);
