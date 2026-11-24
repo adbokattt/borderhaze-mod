@@ -1,13 +1,19 @@
 package dev.borderhaze;
 
+import dev.borderhaze.network.SettingsPayload;
+import dev.borderhaze.server.BorderHazeServer;
+import dev.borderhaze.server.ServerCommands;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Common entrypoint (runs on both the client and the dedicated server).
- * Later steps add the optional server-side sync/config.
+ * Common entrypoint (runs on the client AND on the dedicated server).
+ *
+ * Server side: the /borderhaze command (permission level 2), the persistent server config and the sync of the
+ * settings to all players (on change and on join). Client side: see BorderHazeClient.
  */
 public class BorderHaze implements ModInitializer {
 	public static final String MOD_ID = "borderhaze";
@@ -19,5 +25,11 @@ public class BorderHaze implements ModInitializer {
 				.map(c -> c.getMetadata().getVersion().getFriendlyString())
 				.orElse("unknown");
 		LOGGER.info("[Border Haze] common init OK (running on Minecraft {}, compiled against 26.2)", mc);
+
+		// the packet must be registered on both sides before anything is sent or received
+		PayloadTypeRegistry.clientboundPlay().register(SettingsPayload.TYPE, SettingsPayload.CODEC);
+
+		BorderHazeServer.init();
+		ServerCommands.register();
 	}
 }

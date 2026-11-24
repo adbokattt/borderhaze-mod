@@ -6,9 +6,13 @@ import dev.borderhaze.client.command.BorderHazeCommand;
 import dev.borderhaze.client.config.HazeConfig;
 import dev.borderhaze.client.debug.RenderDiagnostics;
 import dev.borderhaze.client.sound.BorderSound;
+import dev.borderhaze.network.SettingsPayload;
+import dev.borderhaze.settings.BorderHazeSettings;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 /**
  * Client-only entrypoint.
@@ -42,6 +46,14 @@ public class BorderHazeClient implements ClientModInitializer {
 		BorderHaze.LOGGER.info("[Border Haze] client init OK (2-pass blur / pixel styles, /borderhaze command)");
 		HazeConfig.load();
 		BorderHazeCommand.register();
+
+		// Settings pushed by a dedicated server that has Border Haze (on join and whenever an admin changes something)
+		ClientPlayNetworking.registerGlobalReceiver(SettingsPayload.TYPE, (payload, context) -> {
+			BorderHazeSettings settings = BorderHazeSettings.parse(payload.text());
+			context.client().execute(() -> HazeConfig.applyServer(settings));
+		});
+		// Back to the local settings when leaving a server
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> HazeConfig.clearServer());
 		ClientTickEvents.END_CLIENT_TICK.register(BorderDebug::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(BorderSound::tick);
 		RenderDiagnostics.dump();

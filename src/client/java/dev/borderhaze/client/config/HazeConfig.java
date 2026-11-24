@@ -1,71 +1,144 @@
 package dev.borderhaze.client.config;
 
 import dev.borderhaze.BorderHaze;
+import dev.borderhaze.settings.BorderHazeSettings;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
 import java.util.Properties;
 
 /**
- * Tiny text config: <game dir>/config/borderhaze.properties
- * It is re-read automatically (about once a second) when the file changes, so the look of the effect
- * can be tuned while the game is running. The /borderhaze command edits the same values and saves them here.
+ * Client settings. The static fields below are the EFFECTIVE values that all rendering and sound code reads.
+ *
+ * Normally they come from the local file config/borderhaze.properties (re-read about once a second when it changes;
+ * edited in game with /bhlocal). While the player is connected to a dedicated server that has Border Haze, the server's
+ * settings replace them (applyServer) and the local values are kept aside untouched; on disconnect they come back
+ * (clearServer). A player can opt out of server settings with ignoreServerSettings=true.
+ *
+ * Two values are always local and never sent by a server: debugMask and ignoreServerSettings.
  */
 public final class HazeConfig {
 	private HazeConfig() {
 	}
 
-	/** Master switch. When off the mod is invisible: the vanilla border and warning are shown again. */
+	// ---- effective values (mirror BorderHazeSettings) ----
 	public static volatile boolean enabled = true;
-	/** true = DEBUG view: red tint outside the border + yellow line exactly on the border. */
-	public static volatile boolean debugMask = false;
-	/** Look of the effect: 0 = blur + ripple (heat haze), 1 = pixelated (mosaic) with a slight blur. */
 	public static volatile int style = 0;
-	/** Blocks over which the effect fades in, starting exactly at the border. */
 	public static volatile float falloff = 3.0f;
-	/** Blur style: maximum blur radius in screen pixels. */
 	public static volatile float blurRadius = 18.0f;
-	/** Blur style: ripple strength in screen UV units (0.004 = 0.4% of the screen). */
 	public static volatile float rippleAmplitude = 0.006f;
-	/** Blur style: ripple animation speed. */
 	public static volatile float rippleSpeed = 1.2f;
-	/** Blur style: ripple wave density. */
 	public static volatile float rippleScale = 40.0f;
-	/** Pixel style: size of one mosaic block in screen pixels. */
 	public static volatile float pixelSize = 8.0f;
-	/** Pixel style: softness. 0 = sharp blocks, 1 = each block averages a 2x larger area (slightly blurred). */
 	public static volatile float pixelBlur = 0.6f;
-	/** Both styles: how strongly the area beyond the border is washed towards the haze colour (0 = off, 1 = solid). */
 	public static volatile float hazeStrength = 0.1f;
-	/** Both styles: haze colour as 0xRRGGBB. */
 	public static volatile int hazeColor = 0xC8D4E4;
-	/** Maximum blur radius (pixels) of the screen blur near the border; it covers the whole screen at the border. 0 = off. */
 	public static volatile float edgeBlur = 64.0f;
-	/** Distance to the border (blocks) at which the screen blur starts to creep in from the edges. */
 	public static volatile float edgeDistance = 16.0f;
-	/** How strongly the fully blurred screen is washed towards the haze colour when you are at the border (0 = off). */
 	public static volatile float edgeHaze = 0.45f;
-	/** Play the border hum when the player is near the border. */
 	public static volatile boolean soundEnabled = true;
-	/** Maximum volume of the hum (0 .. 1). It is also scaled by the game's "Ambient" volume slider. */
 	public static volatile float soundVolume = 0.5f;
-	/** Distance to the border (blocks) at which the hum starts to be heard. */
 	public static volatile float soundDistance = 24.0f;
+
+	// ---- always local ----
+	/** DEBUG view: red tint outside the border + yellow line exactly on the border. */
+	public static volatile boolean debugMask = false;
+	/** true = ignore the settings pushed by servers and always use the local values. */
+	public static volatile boolean ignoreServerSettings = false;
+
+	private static volatile boolean serverControlled = false;
+	/** The local values, kept here while a server's settings are active. */
+	private static BorderHazeSettings savedLocal;
 
 	private static Path file;
 	private static long lastModified = -1;
 	private static long lastCheck = 0;
+
+	public static boolean isServerControlled() {
+		return serverControlled;
+	}
+
+	// ------------------------------------------------------------------ server override
+
+	/** The server pushed its settings (on join or after an admin changed something). */
+	public static void applyServer(BorderHazeSettings s) {
+		if (ignoreServerSettings) {
+			return;
+		}
+		if (!serverControlled) {
+			savedLocal = snapshot();
+			serverControlled = true;
+			BorderHaze.LOGGER.info("[Border Haze] this server controls the border visuals: using the server's settings");
+		}
+		apply(s);
+	}
+
+	/** Disconnected from the server: back to the local settings. */
+	public static void clearServer() {
+		if (!serverControlled) {
+			return;
+		}
+		serverControlled = false;
+		if (savedLocal != null) {
+			apply(savedLocal);
+			savedLocal = null;
+		}
+		BorderHaze.LOGGER.info("[Border Haze] left the server: local settings restored");
+	}
+
+	private static void apply(BorderHazeSettings s) {
+		enabled = s.enabled;
+		style = s.style;
+		falloff = s.falloff;
+		blurRadius = s.blurRadius;
+		rippleAmplitude = s.rippleAmplitude;
+		rippleSpeed = s.rippleSpeed;
+		rippleScale = s.rippleScale;
+		pixelSize = s.pixelSize;
+		pixelBlur = s.pixelBlur;
+		hazeStrength = s.hazeStrength;
+		hazeColor = s.hazeColor;
+		edgeBlur = s.edgeBlur;
+		edgeDistance = s.edgeDistance;
+		edgeHaze = s.edgeHaze;
+		soundEnabled = s.soundEnabled;
+		soundVolume = s.soundVolume;
+		soundDistance = s.soundDistance;
+	}
+
+	private static BorderHazeSettings snapshot() {
+		BorderHazeSettings s = new BorderHazeSettings();
+		s.enabled = enabled;
+		s.style = style;
+		s.falloff = falloff;
+		s.blurRadius = blurRadius;
+		s.rippleAmplitude = rippleAmplitude;
+		s.rippleSpeed = rippleSpeed;
+		s.rippleScale = rippleScale;
+		s.pixelSize = pixelSize;
+		s.pixelBlur = pixelBlur;
+		s.hazeStrength = hazeStrength;
+		s.hazeColor = hazeColor;
+		s.edgeBlur = edgeBlur;
+		s.edgeDistance = edgeDistance;
+		s.edgeHaze = edgeHaze;
+		s.soundEnabled = soundEnabled;
+		s.soundVolume = soundVolume;
+		s.soundDistance = soundDistance;
+		return s;
+	}
+
+	// ------------------------------------------------------------------ local file
 
 	public static void load() {
 		try {
 			file = FabricLoader.getInstance().getConfigDir().resolve("borderhaze.properties");
 			if (!Files.exists(file)) {
 				Files.createDirectories(file.getParent());
-				Files.writeString(file, render());
+				Files.writeString(file, fileText(new BorderHazeSettings(), false, false));
 				BorderHaze.LOGGER.info("[Border Haze] created default config {}", file);
 			}
 			read();
@@ -74,7 +147,7 @@ public final class HazeConfig {
 		}
 	}
 
-	/** Re-reads the file right now (used by /borderhaze reload). */
+	/** Re-reads the file right now (used by /bhlocal reload). */
 	public static void reload() {
 		try {
 			if (file != null) {
@@ -85,11 +158,12 @@ public final class HazeConfig {
 		}
 	}
 
-	/** Writes the current values (with comments) to the config file. Used by the /borderhaze command. */
+	/** Writes the LOCAL values (never the server's) to the config file. */
 	public static void save() {
 		try {
 			if (file != null) {
-				Files.writeString(file, render());
+				BorderHazeSettings local = serverControlled && savedLocal != null ? savedLocal : snapshot();
+				Files.writeString(file, fileText(local, debugMask, ignoreServerSettings));
 				lastModified = Files.getLastModifiedTime(file).toMillis();
 			}
 		} catch (Throwable t) {
@@ -119,126 +193,35 @@ public final class HazeConfig {
 			p.load(r);
 		}
 		lastModified = Files.getLastModifiedTime(file).toMillis();
-		enabled = bool(p, "enabled", true);
-		debugMask = bool(p, "debugMask", false);
-		String st = p.getProperty("style", "blur").trim().toLowerCase(Locale.ROOT);
-		style = (st.equals("pixel") || st.equals("pixelated") || st.equals("1")) ? 1 : 0;
-		falloff = num(p, "falloff", 3.0f, 0.5f, 200f);
-		blurRadius = num(p, "blurRadius", 18.0f, 0f, 96f);
-		rippleAmplitude = num(p, "rippleAmplitude", 0.006f, 0f, 0.05f);
-		rippleSpeed = num(p, "rippleSpeed", 1.2f, 0f, 20f);
-		rippleScale = num(p, "rippleScale", 40.0f, 1f, 400f);
-		pixelSize = num(p, "pixelSize", 8.0f, 2f, 64f);
-		pixelBlur = num(p, "pixelBlur", 0.6f, 0f, 2f);
-		hazeStrength = num(p, "hazeStrength", 0.1f, 0f, 1f);
-		hazeColor = color(p, "hazeColor", 0xC8D4E4);
-		edgeBlur = num(p, "edgeBlur", 64.0f, 0f, 192f);
-		edgeDistance = num(p, "edgeDistance", 16.0f, 1f, 200f);
-		edgeHaze = num(p, "edgeHaze", 0.45f, 0f, 1f);
-		soundEnabled = bool(p, "sound", true);
-		soundVolume = num(p, "soundVolume", 0.5f, 0f, 1f);
-		soundDistance = num(p, "soundDistance", 24.0f, 2f, 200f);
-		BorderHaze.LOGGER.info("[Border Haze] config loaded: enabled={} debugMask={} style={} falloff={} blur={} haze={} #{} edgeBlur={}@{} edgeHaze={} sound={}/{}@{} (ripple {}/{}/{}, pixel {}/{})",
-				enabled, debugMask, style == 1 ? "pixel" : "blur", falloff, blurRadius, hazeStrength, String.format("%06X", hazeColor),
-				edgeBlur, edgeDistance, edgeHaze, soundEnabled, soundVolume, soundDistance,
-				rippleAmplitude, rippleSpeed, rippleScale, pixelSize, pixelBlur);
-	}
 
-	private static boolean bool(Properties p, String key, boolean def) {
-		String v = p.getProperty(key);
-		return v == null ? def : Boolean.parseBoolean(v.trim());
-	}
+		debugMask = BorderHazeSettings.parseBool(p, "debugMask", false);
+		ignoreServerSettings = BorderHazeSettings.parseBool(p, "ignoreServerSettings", false);
+		BorderHazeSettings local = BorderHazeSettings.fromProperties(p);
 
-	private static float num(Properties p, String key, float def, float min, float max) {
-		String v = p.getProperty(key);
-		if (v == null) {
-			return def;
-		}
-		try {
-			float f = Float.parseFloat(v.trim());
-			return Math.max(min, Math.min(max, f));
-		} catch (NumberFormatException e) {
-			return def;
-		}
-	}
-
-	private static int color(Properties p, String key, int def) {
-		String v = p.getProperty(key);
-		if (v == null) {
-			return def;
-		}
-		try {
-			String hex = v.trim();
-			if (hex.startsWith("#")) {
-				hex = hex.substring(1);
+		if (serverControlled) {
+			if (ignoreServerSettings) {
+				savedLocal = local;
+				clearServer();
+			} else {
+				savedLocal = local; // keep the local copy fresh; the server's values stay active
 			}
-			return Integer.parseInt(hex, 16) & 0xFFFFFF;
-		} catch (NumberFormatException e) {
-			return def;
+		} else {
+			apply(local);
 		}
+		BorderHaze.LOGGER.info("[Border Haze] config loaded: enabled={} debugMask={} style={} blur={} haze={} edge={}@{} sound={}/{}@{} ignoreServer={}{}",
+				local.enabled, debugMask, local.style == 1 ? "pixel" : "blur", local.blurRadius, local.hazeStrength,
+				local.edgeBlur, local.edgeDistance, local.soundEnabled, local.soundVolume, local.soundDistance,
+				ignoreServerSettings, serverControlled ? " (server settings are active right now)" : "");
 	}
 
-	/** The config file text for the CURRENT values. */
-	private static String render() {
-		return """
-				# Border Haze settings. Save the file while the game runs: changes apply within a second.
-				# The same values can be changed in game with /borderhaze (see /borderhaze status).
+	private static String fileText(BorderHazeSettings s, boolean debug, boolean ignoreServer) {
+		return s.toConfigText() + """
 
-				# Master switch. false = the mod is invisible (vanilla border and warning are shown again)
-				enabled=%s
-
-				# true  = DEBUG view: red tint outside the border + yellow line exactly on the border
+				# --- client only (a server can never change these) ---
+				# true = DEBUG view: red tint outside the border + yellow line exactly on the border
 				debugMask=%s
-
-				# Look of the effect:
-				#   blur  = blurred + heat-haze ripple (uses blurRadius, ripple*)
-				#   pixel = pixelated mosaic with a slight blur (uses pixelSize, pixelBlur)
-				style=%s
-
-				# Blocks over which the effect fades in, starting exactly at the border (0.5 .. 200)
-				falloff=%s
-
-				# --- style=blur ---
-				# Maximum blur radius in screen pixels (0 .. 96). Bigger = harder to see what is beyond the border.
-				blurRadius=%s
-				# Ripple (heat-haze) strength in screen UV units, 0 = off (0 .. 0.05)
-				rippleAmplitude=%s
-				# Ripple animation speed (0 .. 20)
-				rippleSpeed=%s
-				# Ripple wave density (1 .. 400)
-				rippleScale=%s
-
-				# --- style=pixel ---
-				# Size of one mosaic block in screen pixels (2 .. 64)
-				pixelSize=%s
-				# Softness of the blocks: 0 = sharp, 1 = very soft (0 .. 2)
-				pixelBlur=%s
-
-				# --- both styles ---
-				# How strongly everything beyond the border is washed towards the haze colour (0 .. 1). 0 = off
-				hazeStrength=%s
-				# Haze colour, hex RRGGBB
-				hazeColor=%s
-
-				# --- screen blur near the border (replaces the vanilla red warning at the screen edges) ---
-				# It blurs EVERYTHING on screen (world, hand, hotbar, open inventories). It creeps in from the screen edges as you
-				# approach the border and covers the whole screen when you stand at the border.
-				# Maximum blur radius in pixels (0 .. 192). 0 = off
-				edgeBlur=%s
-				# Distance to the border (blocks) at which the blur starts to appear (1 .. 200)
-				edgeDistance=%s
-				# Haze wash over the fully blurred screen at the border, 0 = off (0 .. 1)
-				edgeHaze=%s
-
-				# --- border hum ---
-				# Play a low hum when you are near the border
-				sound=%s
-				# Maximum volume (0 .. 1). It is also scaled by the "Ambient" volume slider of the game
-				soundVolume=%s
-				# Distance to the border (blocks) at which the hum starts to be heard (2 .. 200)
-				soundDistance=%s
-				""".formatted(enabled, debugMask, style == 1 ? "pixel" : "blur", falloff, blurRadius, rippleAmplitude,
-				rippleSpeed, rippleScale, pixelSize, pixelBlur, hazeStrength, String.format("%06X", hazeColor),
-				edgeBlur, edgeDistance, edgeHaze, soundEnabled, soundVolume, soundDistance);
+				# true = ignore the settings pushed by a server that has Border Haze, always use the values above
+				ignoreServerSettings=%s
+				""".formatted(debug, ignoreServer);
 	}
 }

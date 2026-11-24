@@ -88,6 +88,10 @@ tasks.register('verifyModJar') {
 			'fabric.mod.json',
 			'borderhaze.client.mixins.json',
 			'dev/borderhaze/BorderHaze.class',
+			'dev/borderhaze/settings/BorderHazeSettings.class',
+			'dev/borderhaze/network/SettingsPayload.class',
+			'dev/borderhaze/server/BorderHazeServer.class',
+			'dev/borderhaze/server/ServerCommands.class',
 			'dev/borderhaze/client/BorderHazeClient.class',
 			'dev/borderhaze/client/mixin/WorldBorderRendererMixin.class',
 			'dev/borderhaze/client/mixin/LevelRendererMixin.class',
@@ -121,6 +125,7 @@ tasks.register('verifyModJar') {
 				"\n\nMOD JAR IS BROKEN. Missing inside the jar: ${missing}\n" +
 				"Expected repository layout:\n" +
 				"  src/main/java/dev/borderhaze/BorderHaze.java\n" +
+				"  src/main/java/dev/borderhaze/settings|network|server/... (BorderHazeSettings, SettingsPayload, BorderHazeServer, ServerCommands)\n" +
 				"  src/main/resources/fabric.mod.json\n" +
 				"  src/client/java/dev/borderhaze/client/BorderHazeClient.java\n" +
 				"  src/client/java/dev/borderhaze/client/mixin/WorldBorderRendererMixin.java\n" +
