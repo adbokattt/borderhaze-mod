@@ -25,6 +25,9 @@
     {
       "config": "borderhaze.optional.mixins.json",
       "environment": "client"
+    },
+    {
+      "config": "borderhaze.glitch.mixins.json"
     }
   ],
   "depends": {

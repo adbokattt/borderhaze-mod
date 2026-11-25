@@ -5,6 +5,7 @@ import dev.borderhaze.client.border.BorderDebug;
 import dev.borderhaze.client.command.BorderHazeCommand;
 import dev.borderhaze.client.config.HazeConfig;
 import dev.borderhaze.client.debug.RenderDiagnostics;
+import dev.borderhaze.client.glitch.GlitchClient;
 import dev.borderhaze.client.sound.BorderSound;
 import dev.borderhaze.network.SettingsPayload;
 import dev.borderhaze.settings.BorderHazeSettings;
@@ -54,6 +55,9 @@ public class BorderHazeClient implements ClientModInitializer {
 		});
 		// Back to the local settings when leaving a server
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> HazeConfig.clearServer());
+
+		// mechanic 2: GLITCH (independent client part)
+		GlitchClient.init();
 		ClientTickEvents.END_CLIENT_TICK.register(BorderDebug::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(BorderSound::tick);
 		RenderDiagnostics.dump();

@@ -16,6 +16,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Temporary helper (steps 2-4): writes real class members and vanilla shader sources into
@@ -28,8 +30,22 @@ public final class RenderDiagnostics {
 	private RenderDiagnostics() {
 	}
 
+	private static volatile boolean forced = false;
+
 	public static boolean enabled() {
-		return "true".equalsIgnoreCase(System.getProperty("borderhaze.debug", "false"));
+		return forced || "true".equalsIgnoreCase(System.getProperty("borderhaze.debug", "false"));
+	}
+
+	/** Writes all diagnostic files right now (the /bhlocal dump command), regardless of the JVM flag. */
+	public static void dumpNow(Minecraft mc) {
+		forced = true;
+		try {
+			dump();
+			dumpResources(mc);
+			dumpPlayerRendering();
+		} finally {
+			forced = false;
+		}
 	}
 
 	private static final Predicate<String> ALL = s -> true;
@@ -161,6 +177,75 @@ public final class RenderDiagnostics {
 			}
 			out.add("");
 		});
+	}
+
+	// ------------------------------------------------------------------ player rendering discovery (GLITCH)
+
+	/** Classes whose full member list is dumped (found by simple name, whatever package they live in). */
+	private static final String[] KEY_CLASSES = {
+			"AvatarRenderer", "AvatarRenderState", "PlayerModel", "HumanoidModel", "HumanoidRenderState", "ArmedEntityRenderState",
+			"LivingEntityRenderer", "LivingEntityRenderState", "EntityRenderState", "EntityRenderer",
+			"PlayerSkin", "AbstractClientPlayer", "RemotePlayer", "Avatar",
+			"ItemInHandRenderer", "ItemInHandLayer", "CapeLayer", "WingsLayer", "HumanoidArmorLayer", "CustomHeadLayer",
+			"EquipmentLayerRenderer", "RenderLayer", "ModelPart", "SubmitNodeCollector", "EntityRenderDispatcher"
+	};
+
+	private static final Pattern CANDIDATES = Pattern.compile(
+			"(?i).*(avatar|playerskin|humanoid|armor|cape|elytra|wings|customhead|iteminhand|submitnode|modelpart|equipmentlayer|renderlayer|mannequin|playermodel).*");
+
+	/**
+	 * Finds the real class names of the player rendering code in the game jar (no guessing about package names),
+	 * lists every candidate and dumps the members of the key classes. Output: logs/borderhaze-player-render.txt
+	 */
+	public static void dumpPlayerRendering() {
+		if (!enabled()) {
+			return;
+		}
+		List<String> out = new ArrayList<>();
+		try {
+			String mc = FabricLoader.getInstance().getModContainer("minecraft")
+					.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("unknown");
+			out.add("Border Haze player-rendering discovery | Minecraft " + mc);
+			out.add("");
+
+			List<String> found = new ArrayList<>();
+			var container = FabricLoader.getInstance().getModContainer("minecraft");
+			if (container.isPresent()) {
+				for (Path root : container.get().getRootPaths()) {
+					try (Stream<Path> walk = Files.walk(root)) {
+						walk.map(Path::toString)
+								.filter(p -> p.endsWith(".class"))
+								.map(p -> (p.startsWith("/") ? p.substring(1) : p).replace('/', '.').replace('\\', '.'))
+								.map(p -> p.substring(0, p.length() - ".class".length()))
+								.filter(p -> p.startsWith("net.minecraft.") && CANDIDATES.matcher(p).matches())
+								.forEach(found::add);
+					}
+				}
+			}
+			found.sort(Comparator.naturalOrder());
+			out.add("#### candidate classes in the game jar (" + found.size() + ")");
+			for (String name : found) {
+				out.add("  " + name);
+			}
+			out.add("");
+
+			for (String simple : KEY_CLASSES) {
+				boolean any = false;
+				for (String full : found) {
+					if (full.endsWith("." + simple) || full.endsWith("$" + simple)) {
+						dump(out, full, ALL);
+						any = true;
+					}
+				}
+				if (!any) {
+					out.add("==== " + simple + "  (no class with this simple name was found)");
+					out.add("");
+				}
+			}
+		} catch (Throwable t) {
+			out.add("PLAYER RENDER DISCOVERY FAILED: " + t);
+		}
+		write(out, "borderhaze-player-render.txt");
 	}
 
 	// ------------------------------------------------------------------ output

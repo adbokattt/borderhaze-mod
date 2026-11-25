@@ -4,13 +4,13 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import dev.borderhaze.core.AdminPermission;
 import dev.borderhaze.settings.BorderHazeSettings;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.permissions.Permissions;
 
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -44,7 +44,7 @@ public final class ServerCommands {
 	public static void register() {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
 				Commands.literal("borderhaze")
-						.requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
+						.requires(AdminPermission::isAdmin)
 						.executes(ctx -> status(ctx.getSource()))
 						.then(Commands.literal("status").executes(ctx -> status(ctx.getSource())))
 						.then(Commands.literal("on").executes(ctx -> change(ctx.getSource(), s -> s.enabled = true, "effect ON for everybody")))

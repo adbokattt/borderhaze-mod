@@ -92,6 +92,17 @@ tasks.register('verifyModJar') {
 			'dev/borderhaze/network/SettingsPayload.class',
 			'dev/borderhaze/server/BorderHazeServer.class',
 			'dev/borderhaze/server/ServerCommands.class',
+			'dev/borderhaze/core/AdminPermission.class',
+			'dev/borderhaze/glitch/GlitchMechanic.class',
+			'dev/borderhaze/glitch/GlitchManager.class',
+			'dev/borderhaze/glitch/GlitchCommands.class',
+			'dev/borderhaze/glitch/GlitchStatePayload.class',
+			'dev/borderhaze/glitch/GlitchEvents.class',
+			'dev/borderhaze/glitch/GlitchApi.class',
+			'dev/borderhaze/glitch/mixin/ServerPlayerMixin.class',
+			'borderhaze.glitch.mixins.json',
+			'dev/borderhaze/client/glitch/GlitchClient.class',
+			'dev/borderhaze/client/glitch/GlitchClientState.class',
 			'dev/borderhaze/client/BorderHazeClient.class',
 			'dev/borderhaze/client/mixin/WorldBorderRendererMixin.class',
 			'dev/borderhaze/client/mixin/LevelRendererMixin.class',
@@ -126,6 +137,9 @@ tasks.register('verifyModJar') {
 				"Expected repository layout:\n" +
 				"  src/main/java/dev/borderhaze/BorderHaze.java\n" +
 				"  src/main/java/dev/borderhaze/settings|network|server/... (BorderHazeSettings, SettingsPayload, BorderHazeServer, ServerCommands)\n" +
+				"  src/main/java/dev/borderhaze/core/AdminPermission.java and glitch/... (GLITCH mechanic, glitch/mixin/ServerPlayerMixin.java)\n" +
+				"  src/main/resources/borderhaze.glitch.mixins.json\n" +
+				"  src/client/java/dev/borderhaze/client/glitch/...\n" +
 				"  src/main/resources/fabric.mod.json\n" +
 				"  src/client/java/dev/borderhaze/client/BorderHazeClient.java\n" +
 				"  src/client/java/dev/borderhaze/client/mixin/WorldBorderRendererMixin.java\n" +

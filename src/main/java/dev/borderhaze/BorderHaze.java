@@ -1,5 +1,6 @@
 package dev.borderhaze;
 
+import dev.borderhaze.glitch.GlitchMechanic;
 import dev.borderhaze.network.SettingsPayload;
 import dev.borderhaze.server.BorderHazeServer;
 import dev.borderhaze.server.ServerCommands;
@@ -29,7 +30,11 @@ public class BorderHaze implements ModInitializer {
 		// the packet must be registered on both sides before anything is sent or received
 		PayloadTypeRegistry.clientboundPlay().register(SettingsPayload.TYPE, SettingsPayload.CODEC);
 
+		// ---- mechanic 1: BorderHaze (unchanged) ----
 		BorderHazeServer.init();
 		ServerCommands.register();
+
+		// ---- mechanic 2: GLITCH (independent; shares only the project infrastructure) ----
+		GlitchMechanic.init();
 	}
 }

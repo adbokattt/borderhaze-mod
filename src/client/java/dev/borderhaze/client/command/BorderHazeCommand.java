@@ -5,6 +5,9 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.borderhaze.client.config.HazeConfig;
+import dev.borderhaze.client.debug.RenderDiagnostics;
+import dev.borderhaze.client.glitch.GlitchClientState;
+import net.minecraft.client.Minecraft;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -25,6 +28,8 @@ import java.util.function.Consumer;
  *   /bhlocal edge <0..192>        /bhlocal edgedistance <1..200>   /bhlocal edgehaze <0..1>
  *   /bhlocal sound <0..1>         /bhlocal debug <true|false>
  *   /bhlocal ignoreserver <true|false>   true = never accept a server's settings
+ *   /bhlocal glitch                      which players this client knows to be GLITCH (check of the server sync)
+ *   /bhlocal dump                        write the diagnostic files (class lists for development) to the logs folder
  */
 public final class BorderHazeCommand {
 	private BorderHazeCommand() {
@@ -61,6 +66,19 @@ public final class BorderHazeCommand {
 									HazeConfig.save();
 									return say(ctx.getSource(), "Border Haze: debug view = " + HazeConfig.debugMask);
 								})))
+						.then(ClientCommands.literal("glitch").executes(ctx -> {
+							Minecraft mc = Minecraft.getInstance();
+							StringBuilder sb = new StringBuilder("GLITCH: this client knows " + GlitchClientState.all().size() + " glitched player(s)");
+							for (java.util.UUID id : GlitchClientState.all()) {
+								var player = mc.level == null ? null : mc.level.getPlayerByUUID(id);
+								sb.append("\n - ").append(player != null ? player.getName().getString() : "(not in view)").append("  ").append(id);
+							}
+							return say(ctx.getSource(), sb.toString());
+						}))
+						.then(ClientCommands.literal("dump").executes(ctx -> {
+							RenderDiagnostics.dumpNow(Minecraft.getInstance());
+							return say(ctx.getSource(), "Border Haze: diagnostic files written to the logs folder of the game (borderhaze-diag.txt, borderhaze-resources.txt, borderhaze-player-render.txt)");
+						}))
 						.then(ClientCommands.literal("ignoreserver")
 								.then(ClientCommands.argument("enabled", BoolArgumentType.bool()).executes(ctx -> {
 									boolean ignore = BoolArgumentType.getBool(ctx, "enabled");
