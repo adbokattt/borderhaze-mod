@@ -191,7 +191,7 @@ public final class RenderDiagnostics {
 	};
 
 	private static final Pattern CANDIDATES = Pattern.compile(
-			"(?i).*(avatar|playerskin|humanoid|armor|cape|elytra|wings|customhead|iteminhand|submitnode|modelpart|equipmentlayer|renderlayer|mannequin|playermodel).*");
+			"(?i).*(avatar|playerskin|humanoid|armor|cape|elytra|wings|customhead|iteminhand|submitnode|modelpart|equipmentlayer|renderlayer|mannequin|playermodel|livingentityrender|entityrenderstate|entityrenderer).*");
 
 	/**
 	 * Finds the real class names of the player rendering code in the game jar (no guessing about package names),

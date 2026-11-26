@@ -103,6 +103,12 @@ tasks.register('verifyModJar') {
 			'borderhaze.glitch.mixins.json',
 			'dev/borderhaze/client/glitch/GlitchClient.class',
 			'dev/borderhaze/client/glitch/GlitchClientState.class',
+			'dev/borderhaze/client/glitch/GlitchAppearance.class',
+			'dev/borderhaze/client/glitch/GlitchRenderFlag.class',
+			'dev/borderhaze/client/glitch/mixin/AvatarRendererMixin.class',
+			'dev/borderhaze/client/glitch/mixin/AvatarRenderStateMixin.class',
+			'borderhaze.glitch.client.mixins.json',
+			'assets/borderhaze/textures/entity/glitch.png',
 			'dev/borderhaze/client/BorderHazeClient.class',
 			'dev/borderhaze/client/mixin/WorldBorderRendererMixin.class',
 			'dev/borderhaze/client/mixin/LevelRendererMixin.class',
@@ -139,7 +145,8 @@ tasks.register('verifyModJar') {
 				"  src/main/java/dev/borderhaze/settings|network|server/... (BorderHazeSettings, SettingsPayload, BorderHazeServer, ServerCommands)\n" +
 				"  src/main/java/dev/borderhaze/core/AdminPermission.java and glitch/... (GLITCH mechanic, glitch/mixin/ServerPlayerMixin.java)\n" +
 				"  src/main/resources/borderhaze.glitch.mixins.json\n" +
-				"  src/client/java/dev/borderhaze/client/glitch/...\n" +
+				"  src/client/java/dev/borderhaze/client/glitch/... (+ mixin/AvatarRendererMixin.java, mixin/AvatarRenderStateMixin.java)\n" +
+				"  src/client/resources/borderhaze.glitch.client.mixins.json and assets/borderhaze/textures/entity/glitch.png\n" +
 				"  src/main/resources/fabric.mod.json\n" +
 				"  src/client/java/dev/borderhaze/client/BorderHazeClient.java\n" +
 				"  src/client/java/dev/borderhaze/client/mixin/WorldBorderRendererMixin.java\n" +

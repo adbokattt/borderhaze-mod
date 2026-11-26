@@ -28,6 +28,10 @@
     },
     {
       "config": "borderhaze.glitch.mixins.json"
+    },
+    {
+      "config": "borderhaze.glitch.client.mixins.json",
+      "environment": "client"
     }
   ],
   "depends": {
