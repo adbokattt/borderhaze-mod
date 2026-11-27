@@ -126,7 +126,6 @@ tasks.register('verifyModJar') {
 			'dev/borderhaze/client/render/BorderEffect.class',
 			'dev/borderhaze/client/render/BorderUniforms.class',
 			'dev/borderhaze/client/render/EdgeUniforms.class',
-			'dev/borderhaze/client/render/UniformBinder.class',
 			'dev/borderhaze/client/config/HazeConfig.class',
 			'dev/borderhaze/client/command/BorderHazeCommand.class',
 			'dev/borderhaze/client/sound/BorderSound.class',
