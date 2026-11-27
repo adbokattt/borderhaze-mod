@@ -12,6 +12,9 @@ public abstract class AvatarRenderStateMixin implements GlitchRenderFlag {
 	@Unique
 	private boolean borderhaze$glitch;
 
+	@Unique
+	private int borderhaze$variant;
+
 	@Override
 	public boolean borderhaze$isGlitch() {
 		return borderhaze$glitch;
@@ -20,5 +23,15 @@ public abstract class AvatarRenderStateMixin implements GlitchRenderFlag {
 	@Override
 	public void borderhaze$setGlitch(boolean glitch) {
 		this.borderhaze$glitch = glitch;
+	}
+
+	@Override
+	public int borderhaze$getVariant() {
+		return borderhaze$variant;
+	}
+
+	@Override
+	public void borderhaze$setVariant(int variant) {
+		this.borderhaze$variant = variant;
 	}
 }

@@ -6,7 +6,8 @@
   "mixins": [],
   "client": [
     "AvatarRenderStateMixin",
-    "AvatarRendererMixin"
+    "AvatarRendererMixin",
+    "GlitchLevelRendererMixin"
   ],
   "server": [],
   "injectors": {

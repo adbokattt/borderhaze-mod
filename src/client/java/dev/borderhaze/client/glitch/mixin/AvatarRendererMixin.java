@@ -3,6 +3,8 @@ package dev.borderhaze.client.glitch.mixin;
 import dev.borderhaze.client.glitch.GlitchAppearance;
 import dev.borderhaze.client.glitch.GlitchClientState;
 import dev.borderhaze.client.glitch.GlitchRenderFlag;
+import dev.borderhaze.client.glitch.GlitchTextures;
+import dev.borderhaze.client.glitch.GlitchTimeline;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
@@ -34,6 +36,7 @@ public abstract class AvatarRendererMixin {
 		boolean glitch = GlitchClientState.isGlitched(avatar.getUUID());
 		if (state instanceof GlitchRenderFlag flag) {
 			flag.borderhaze$setGlitch(glitch);
+			flag.borderhaze$setVariant(glitch ? GlitchTimeline.variant(avatar.getUUID(), System.currentTimeMillis()) : GlitchTimeline.VARIANT_NORMAL);
 		}
 		if (glitch) {
 			GlitchAppearance.apply(state);
@@ -45,7 +48,7 @@ public abstract class AvatarRendererMixin {
 			at = @At("HEAD"), cancellable = true, require = 0)
 	private void borderhaze$skin(AvatarRenderState state, CallbackInfoReturnable<Identifier> cir) {
 		if (state instanceof GlitchRenderFlag flag && flag.borderhaze$isGlitch()) {
-			cir.setReturnValue(GlitchAppearance.TEXTURE);
+			cir.setReturnValue(GlitchTextures.forVariant(flag.borderhaze$getVariant()));
 		}
 	}
 
@@ -71,7 +74,7 @@ public abstract class AvatarRendererMixin {
 	/** renderHand(PoseStack, SubmitNodeCollector, int light, Identifier skin, ModelPart arm, boolean sleeve): the first-person arm. */
 	@ModifyVariable(method = "renderHand", at = @At("HEAD"), argsOnly = true, ordinal = 0, require = 0)
 	private Identifier borderhaze$armSkin(Identifier skin) {
-		return borderhaze$localPlayerIsGlitch() ? GlitchAppearance.TEXTURE : skin;
+		return borderhaze$localPlayerIsGlitch() ? GlitchTextures.normal() : skin;
 	}
 
 	@ModifyVariable(method = "renderHand", at = @At("HEAD"), argsOnly = true, ordinal = 0, require = 0)

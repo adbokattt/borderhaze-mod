@@ -4,6 +4,7 @@ import com.mojang.blaze3d.buffers.GpuBuffer;
 import dev.borderhaze.BorderHaze;
 import dev.borderhaze.client.border.BorderSnapshot;
 import dev.borderhaze.client.config.HazeConfig;
+import dev.borderhaze.client.core.UniformBinder;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import org.joml.Matrix4f;

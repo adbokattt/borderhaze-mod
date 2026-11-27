@@ -2,6 +2,7 @@ package dev.borderhaze.client.render;
 
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import dev.borderhaze.client.config.HazeConfig;
+import dev.borderhaze.client.core.UniformBinder;
 import net.minecraft.client.renderer.PostChain;
 
 import java.nio.ByteBuffer;

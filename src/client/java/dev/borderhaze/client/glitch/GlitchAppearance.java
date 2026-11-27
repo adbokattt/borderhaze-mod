@@ -2,32 +2,33 @@ package dev.borderhaze.client.glitch;
 
 import dev.borderhaze.BorderHaze;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
-import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.PlayerSkin;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * What a GLITCH figure looks like (stage 2: the body). Everything here only changes how a player is DRAWN on this
- * client; the player's real skin, inventory, armor and game mechanics are untouched.
+ * What a GLITCH figure looks like on the body level. Everything here only changes how a player is DRAWN on this
+ * client; the player's real skin, inventory, armor and game mechanics are untouched. (Eyes, ragged edges, colour fringes
+ * and ghosts are the "shell": see render/GlitchEffect and the glitch post effect.)
  */
 public final class GlitchAppearance {
-	/** The GLITCH skin: a completely black body with two glowing eyes. Used instead of the account's skin. */
-	public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(BorderHaze.MOD_ID, "textures/entity/glitch.png");
-
-	/** Packed light value for "full brightness" (sky 15, block 15): the eyes always glow, the black body stays black. */
+	/** Packed light value for "full brightness" (sky 15, block 15): the figure is lit the same everywhere, so its marker colour is reliable. */
 	public static final int FULL_BRIGHT = 0xF000F0;
 
 	private static final Map<String, Field> FIELDS = new HashMap<>();
-	private static boolean loggedReflectionProblem = false;
+	private static boolean loggedProblem = false;
+	private static Constructor<?> skinConstructor;
+	private static Object wideModelType;
 
 	private GlitchAppearance() {
 	}
 
 	/** Called right after vanilla filled the render state of a GLITCH player. */
 	public static void apply(AvatarRenderState state) {
-		// the second skin layer (hat, jacket, sleeves, pants) is not drawn: the figure is a bare black silhouette
+		// the second skin layer (hat, jacket, sleeves, pants) is not drawn: the figure is a bare silhouette
 		state.showHat = false;
 		state.showJacket = false;
 		state.showLeftSleeve = false;
@@ -36,10 +37,53 @@ public final class GlitchAppearance {
 		state.showRightPants = false;
 		state.isSpectator = false;
 
-		// Fields of the base render-state classes (not part of the dump we studied): set by name, safely.
-		setInt(state, "lightCoords", FULL_BRIGHT);          // always fully lit: the eyes glow in the dark
-		setBoolean(state, "isInvisible", false);             // GLITCH is drawn even if the player has Invisibility (a Vanish style)
+		forceWideModel(state);
+
+		// Fields of the base render-state classes: set by name, safely.
+		setInt(state, "lightCoords", FULL_BRIGHT);
+		setBoolean(state, "isInvisible", false);             // GLITCH is drawn even with Invisibility (a Vanish style)
 		setBoolean(state, "isInvisibleToPlayer", false);
+	}
+
+	/**
+	 * Steve-style thick arms for everybody: the renderer is chosen from state.skin.model() (slim = Alex, wide = Steve),
+	 * so the skin record is replaced by an equal one with the WIDE model type. The account's real skin is never touched.
+	 */
+	private static void forceWideModel(AvatarRenderState state) {
+		try {
+			PlayerSkin old = state.skin;
+			if (old == null) {
+				return;
+			}
+			if (wideModelType == null) {
+				Object current = old.model();
+				Object[] constants = ((Enum<?>) current).getDeclaringClass().getEnumConstants();
+				for (Object c : constants) {
+					String n = ((Enum<?>) c).name();
+					if (n.equals("WIDE") || n.equals("DEFAULT") || n.equals("CLASSIC") || n.equals("STEVE")) {
+						wideModelType = c;
+					}
+				}
+				if (wideModelType == null) {
+					for (Object c : constants) {
+						if (!((Enum<?>) c).name().equals("SLIM")) {
+							wideModelType = c;
+						}
+					}
+				}
+				for (Constructor<?> k : PlayerSkin.class.getConstructors()) {
+					if (k.getParameterCount() == 5) {
+						skinConstructor = k;
+					}
+				}
+				BorderHaze.LOGGER.info("[Border Haze][glitch] wide model type = {}", wideModelType);
+			}
+			if (wideModelType != null && skinConstructor != null && old.model() != wideModelType) {
+				state.skin = (PlayerSkin) skinConstructor.newInstance(old.body(), old.cape(), old.elytra(), wideModelType, old.secure());
+			}
+		} catch (Throwable t) {
+			problem("wide model", t);
+		}
 	}
 
 	private static void setInt(Object target, String name, int value) {
@@ -89,10 +133,10 @@ public final class GlitchAppearance {
 		return found;
 	}
 
-	private static void problem(String name, Throwable t) {
-		if (!loggedReflectionProblem) {
-			loggedReflectionProblem = true;
-			BorderHaze.LOGGER.warn("[Border Haze][glitch] could not set render-state field '{}': {}", name, t.toString());
+	private static void problem(String what, Throwable t) {
+		if (!loggedProblem) {
+			loggedProblem = true;
+			BorderHaze.LOGGER.warn("[Border Haze][glitch] appearance step '{}' failed: {}", what, t.toString());
 		}
 	}
 }
