@@ -36,11 +36,21 @@ import java.util.UUID;
 public final class GlitchEffect {
 	private static final Identifier CHAIN_ID = Identifier.fromNamespaceAndPath(BorderHaze.MOD_ID, "glitch");
 	private static final double MAX_DISTANCE = 128.0;
-	private static final float EYE_SIZE = 0.075f;   // blocks: radius of the bright core of an eye
-	private static final float RECT_MARGIN = 0.035f; // uv: room around the figure for fringes and jitter
+	private static final float EYE_SIZE = 0.0375f;  // blocks: radius of the bright core of an eye (half of the first version)
+	private static final float RECT_MARGIN = 0.05f;  // uv: room around the figure for the smoke cloud and fringes
 
 	private static boolean failed = false;
 	private static boolean loggedFirstRun = false;
+	private static volatile boolean debugMask = false;
+
+	/** Debug view: paints the pixels the effect recognises as GLITCH body magenta and outlines the figure rectangles (/glitchlocal debug). */
+	public static void setDebugMask(boolean on) {
+		debugMask = on;
+	}
+
+	public static boolean isDebugMask() {
+		return debugMask;
+	}
 
 	private GlitchEffect() {
 	}
@@ -105,7 +115,7 @@ public final class GlitchEffect {
 				return;
 			}
 			boolean reverseZ = Math.abs(proj.m22()) < 0.01f;
-			GlitchUniforms.update(chain, reverseZ, figures);
+			GlitchUniforms.update(chain, reverseZ, debugMask, figures);
 			chain.process(mc.gameRenderer.mainRenderTarget(), allocator);
 
 			if (!loggedFirstRun) {

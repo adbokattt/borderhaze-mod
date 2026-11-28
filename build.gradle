@@ -110,6 +110,7 @@ tasks.register('verifyModJar') {
 			'dev/borderhaze/client/glitch/mixin/GlitchLevelRendererMixin.class',
 			'dev/borderhaze/client/glitch/GlitchTimeline.class',
 			'dev/borderhaze/client/glitch/GlitchTextures.class',
+			'dev/borderhaze/client/glitch/GlitchClientCommand.class',
 			'dev/borderhaze/client/glitch/render/GlitchEffect.class',
 			'dev/borderhaze/client/glitch/render/GlitchUniforms.class',
 			'dev/borderhaze/client/core/UniformBinder.class',

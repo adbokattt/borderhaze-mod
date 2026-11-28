@@ -25,5 +25,6 @@ public final class GlitchClient {
 			});
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> GlitchClientState.clear());
+		GlitchClientCommand.register();
 	}
 }

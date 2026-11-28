@@ -12,7 +12,7 @@ import java.util.List;
  * Per-frame data for the GLITCH post effect.
  *
  * Block "GlitchConfig" (std140, must match glitch.fsh and glitch.json), 29 x vec4 = 464 bytes:
- *   vec4 Time        x time(s), y reverse-Z flag, z number of figures, w unused
+ *   vec4 Time        x time(s), y reverse-Z flag, z number of figures, w debug flag (1 = show the detected mask)
  *   vec4 Rects[8]    screen rectangle of each figure (minU, minV, maxU, maxV)
  *   vec4 EyePos[16]  eye (u, v, depth, radius) - eye 2*i and 2*i+1 belong to figure i
  *   vec4 EyeInt[4]   the 16 eye brightnesses packed four per vec4
@@ -26,13 +26,13 @@ final class GlitchUniforms {
 	private GlitchUniforms() {
 	}
 
-	static void update(PostChain chain, boolean reverseZ, List<GlitchFigure> figures) throws Exception {
+	static void update(PostChain chain, boolean reverseZ, boolean debug, List<GlitchFigure> figures) throws Exception {
 		List<GpuBuffer> buffers = BINDER.resolve(chain);
 		ByteBuffer bb = ByteBuffer.allocateDirect(SIZE).order(ByteOrder.nativeOrder());
 
 		int count = Math.min(figures.size(), MAX_FIGURES);
 		float time = (float) (((System.nanoTime() - START_NANOS) / 1.0e9) % 10000.0);
-		bb.putFloat(time).putFloat(reverseZ ? 1.0f : 0.0f).putFloat(count).putFloat(0.0f);
+		bb.putFloat(time).putFloat(reverseZ ? 1.0f : 0.0f).putFloat(count).putFloat(debug ? 1.0f : 0.0f);
 
 		for (int i = 0; i < MAX_FIGURES; i++) {
 			if (i < count) {
