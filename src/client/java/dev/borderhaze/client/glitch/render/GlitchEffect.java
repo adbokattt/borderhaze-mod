@@ -25,11 +25,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * The GLITCH "shell", version 3. The figure is described ANALYTICALLY from the player's pose (six capsules: head, torso,
- * two arms, two legs, following the body yaw, the walking animation and sneaking) and projected to the screen; the
- * post effect builds the unstable black smoke cloud, the colour fringes, the interference and the glowing eyes from that
- * description. Nothing is searched for on the picture, so distance, fog, night and lighting cannot break it.
- * The vanilla player model is still drawn (near-black) underneath; the dense cloud buries its blocky silhouette.
+ * The GLITCH "shell", version 4. The exact silhouette comes from the real (black) player model on the picture; the pose is also
+ * described ANALYTICALLY (six capsules: head, torso, two arms, two legs, following the body yaw, the walking animation and
+ * sneaking) and projected to the screen, but only as a HINT: it tells the post effect where to look, so dark background and
+ * distance/fog cannot be confused with the figure. The post effect builds the ragged, wobbling edge, the purple / blue / cyan
+ * fringes and the glowing eyes.
  *
  * Cost: when nobody is glitched, or no glitched figure is on screen, this returns after a few checks and nothing is sent
  * to the GPU. Safety: any problem disables the effect for the session (logged once).
@@ -39,7 +39,7 @@ public final class GlitchEffect {
 	private static final double MAX_DISTANCE = 128.0;
 	private static final float EYE_SIZE = 0.0375f;     // blocks: radius of the bright core of an eye
 	private static final float RECT_MARGIN = 0.03f;    // uv: extra room around the figure rectangle
-	private static final double CLOUD_REACH = 1.0;     // blocks: how far the smoke cloud can extend beyond the body
+	private static final double CLOUD_REACH = 0.5;     // blocks: room around the body for the ragged edge and the colour fringes
 
 	private static boolean failed = false;
 	private static boolean loggedFirstRun = false;
@@ -190,7 +190,7 @@ public final class GlitchEffect {
 
 		// capsule endpoints in world space: head, torso, right arm, left arm, right leg, left leg
 		Vec3[][] ends = new Vec3[GlitchFigure.PRIMS][2];
-		double[] radius = {0.34, 0.30, 0.17, 0.17, 0.17, 0.17};
+		double[] radius = {0.30, 0.26, 0.14, 0.14, 0.14, 0.14};
 		Vec3 headC = at(pos, side, fwd, 0.0, 1.66 - drop, lean);
 		ends[0][0] = headC;
 		ends[0][1] = headC;
